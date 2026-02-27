@@ -17,16 +17,16 @@ class TestConstruction:
         with pytest.raises(ValueError, match="2 decimal place"):
             Decimal(3, "0.99")
 
-    def test_from_string_trailing_zero_beyond_scale_ok(self) -> None:
-        d = Decimal(3, "0.9970")
-        assert str(d) == "0.997"
+    def test_from_string_trailing_zero_beyond_scale_raises(self) -> None:
+        with pytest.raises(ValueError, match="beyond scale"):
+            Decimal(3, "0.9970")
 
     def test_from_string_nonzero_beyond_scale_raises(self) -> None:
-        with pytest.raises(ValueError, match="Non-zero digit"):
+        with pytest.raises(ValueError, match="beyond scale"):
             Decimal(3, "0.9974")
 
     def test_from_string_nonzero_beyond_scale_raises_2(self) -> None:
-        with pytest.raises(ValueError, match="Non-zero digit"):
+        with pytest.raises(ValueError, match="beyond scale"):
             Decimal(3, "1.0005")
 
     def test_from_int(self) -> None:

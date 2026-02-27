@@ -49,12 +49,11 @@ def _validate_string_precision(s: str, scale: int) -> None:
             f"Write exactly {scale} decimal places to confirm significance."
         )
         raise ValueError(msg)
-    # Reject non-zero digits beyond scale
-    beyond = frac[scale:]
-    if beyond and beyond.lstrip("0"):
+    # Reject any digits beyond scale
+    if len(frac) > scale:
         msg = (
-            f"Non-zero digit(s) '{beyond.lstrip('0')}' beyond scale {scale} "
-            f"in '{s}'. This is likely a typo — use exactly {scale} decimal places."
+            f"String '{s}' has {len(frac)} decimal place(s) beyond scale {scale}. "
+            f"Write exactly {scale} decimal places."
         )
         raise ValueError(msg)
 
