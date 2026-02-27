@@ -54,6 +54,11 @@ All models follow the same pattern:
 - Type aliases via PEP 695 `type` statement: `type State = ...`, `type Time = ...`, etc.
 - Models: Generator (scalar state, periodic output), Processor (tocj + job queue), Counter (phase enum + count)
 
+### Engine (`src/cadpya/engine/`)
+
+- **AtomicModel Protocol**: `@runtime_checkable` structural typing interface (`Protocol[S, T, X, Y]`). Models satisfy it without inheritance. Methods: `internal_transition()`, `external_transition(elapsed, x)`, `output()`, `time_advance()`, `state_interval` property.
+- **Simulator**: Algorithm 1 from VWD21. Wraps one atomic model. `init(q_state, q_time, t)` constructs the model and sets `t_last`/`t_next`. `star_function(t)` handles internal events (validates `t ⊆ t_next`). `x_function(x, t)` handles external events with elapsed-time computation (confluent case clamps lower bound to 0 when `t` intersects `t_last`).
+
 ## Git Workflow
 
 - Create a feature branch for every change
