@@ -220,6 +220,11 @@ class TestIsSubsetOf:
         inf = Interval.right_open_inf(d("0.000"))
         assert finite.is_subset_of(inf) is True
 
+    def test_not_subset_of_inf_when_lower_outside(self) -> None:
+        finite = Interval.closed(d("1.000"), d("3.000"))
+        inf = Interval.right_open_inf(d("2.000"))
+        assert finite.is_subset_of(inf) is False
+
 
 class TestIntersects:
     def test_overlapping(self) -> None:
