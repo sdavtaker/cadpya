@@ -44,7 +44,7 @@ We use the `src/` layout to prevent accidental imports of the source tree root.
 ```toml
 [build-system]
 requires = ["setuptools>=75"]
-build-backend = "setuptools.backends._legacy:_Backend"
+build-backend = "setuptools.build_meta"
 
 [project]
 name = "cadpya"
