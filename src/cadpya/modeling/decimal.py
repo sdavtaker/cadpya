@@ -30,8 +30,7 @@ def _validate_string_precision(s: str, scale: int) -> None:
             _integer_part, _, frac = s.partition(".")
             if frac and frac.lstrip("0"):
                 msg = (
-                    f"Non-zero fractional digit(s) in '{s}' but scale is 0. "
-                    f"Use an integer string."
+                    f"Non-zero fractional digit(s) in '{s}' but scale is 0. Use an integer string."
                 )
                 raise ValueError(msg)
         return
