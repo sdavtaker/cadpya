@@ -19,17 +19,42 @@ def _quantizer(scale: int) -> _stdlib_decimal.Decimal:
 
 
 def _validate_string_precision(s: str, scale: int) -> None:
-    """Reject strings with non-zero digits beyond the declared scale."""
-    if "." not in s:
+    """Reject strings that don't have exactly ``scale`` decimal places.
+
+    The user must write all significant digits explicitly — no silent
+    zero-padding. Trailing zeros beyond the scale are tolerated.
+    """
+    if scale == 0:
+        # scale=0 means no decimal point required
+        if "." in s:
+            _integer_part, _, frac = s.partition(".")
+            if frac and frac.lstrip("0"):
+                msg = (
+                    f"Non-zero fractional digit(s) in '{s}' but scale is 0. "
+                    f"Use an integer string."
+                )
+                raise ValueError(msg)
         return
+    if "." not in s:
+        msg = (
+            f"String '{s}' has no decimal point but scale is {scale}. "
+            f"Write exactly {scale} decimal places (e.g. '{s}." + "0" * scale + "')."
+        )
+        raise ValueError(msg)
     _integer_part, _, frac = s.partition(".")
-    # Strip leading sign if present in integer part (doesn't affect frac)
+    # Must have at least `scale` fractional digits
+    if len(frac) < scale:
+        msg = (
+            f"String '{s}' has {len(frac)} decimal place(s) but scale is {scale}. "
+            f"Write exactly {scale} decimal places to confirm significance."
+        )
+        raise ValueError(msg)
+    # Reject non-zero digits beyond scale
     beyond = frac[scale:]
     if beyond and beyond.lstrip("0"):
         msg = (
             f"Non-zero digit(s) '{beyond.lstrip('0')}' beyond scale {scale} "
-            f"in '{s}'. This is likely a typo — use exactly {scale} decimal "
-            f"places or fewer."
+            f"in '{s}'. This is likely a typo — use exactly {scale} decimal places."
         )
         raise ValueError(msg)
 

@@ -13,9 +13,9 @@ class TestConstruction:
         assert str(d) == "0.997"
         assert d.scale == 3
 
-    def test_from_string_fewer_digits_pads_zeros(self) -> None:
-        d = Decimal(3, "0.99")
-        assert str(d) == "0.990"
+    def test_from_string_fewer_digits_raises(self) -> None:
+        with pytest.raises(ValueError, match="2 decimal place"):
+            Decimal(3, "0.99")
 
     def test_from_string_trailing_zero_beyond_scale_ok(self) -> None:
         d = Decimal(3, "0.9970")
@@ -48,6 +48,10 @@ class TestConstruction:
     def test_negative_scale_raises(self) -> None:
         with pytest.raises(ValueError, match="non-negative"):
             Decimal(-1, "1.0")
+
+    def test_from_string_no_decimal_point_raises(self) -> None:
+        with pytest.raises(ValueError, match="no decimal point"):
+            Decimal(3, "1")
 
     def test_scale_zero(self) -> None:
         d = Decimal(0, "42")
