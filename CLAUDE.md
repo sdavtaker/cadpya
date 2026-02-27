@@ -38,6 +38,22 @@ pipenv run pytest --no-cov -x
 - 90% test coverage threshold enforced by CI
 - See `dev-guide.md` for full coding patterns and tool configuration
 
+## Architecture Notes
+
+### Core Types (`src/cadpya/modeling/`)
+
+- **Decimal**: Thin wrapper around `decimal.Decimal` (stdlib) with fixed scale. Strict construction (rejects non-zero digits beyond scale). Cross-scale comparison via `as_lower_bound()`/`as_upper_bound()`. All arithmetic enforces same-scale.
+- **Interval[T]**: Generic over any totally-ordered T. Supports open/closed bounds, +/-infinity, Minkowski addition, interval subtraction, subset, intersection. Empty interval represents passiveness. Immutable with `__slots__`.
+
+### Atomic Models (`src/cadpya/basic_models/`)
+
+All models follow the same pattern:
+- Constructor: `__init__(self, initial_state, initial_time)` — called by simulator `init()`
+- Transition functions: `internal_transition()`, `external_transition(elapsed, x)` — mutate `_state`
+- `output()` → `Interval[Output]`, `time_advance()` → `Interval[Time] | None` (None = passive)
+- Type aliases via PEP 695 `type` statement: `type State = ...`, `type Time = ...`, etc.
+- Models: Generator (scalar state, periodic output), Processor (tocj + job queue), Counter (phase enum + count)
+
 ## Git Workflow
 
 - Create a feature branch for every change
