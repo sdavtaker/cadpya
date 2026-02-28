@@ -91,8 +91,9 @@ class Processor:
         """Delta_ext: enqueue new job, update tocj += elapsed."""
         if self._state.is_empty():
             # Was passive, now receiving input: start fresh with new job
-            new_lo = ProcessorState(tocj=elapsed.lower, qj=(x.lower,))
-            new_hi = ProcessorState(tocj=elapsed.upper, qj=(x.upper,))
+            # tocj = 0 because no time has been spent on this new job yet
+            new_lo = ProcessorState(tocj=ZERO_TOCJ, qj=(x.lower,))
+            new_hi = ProcessorState(tocj=ZERO_TOCJ, qj=(x.upper,))
         else:
             lo = self._state.lower
             hi = self._state.upper

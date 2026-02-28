@@ -63,12 +63,12 @@ class TestFrozen:
     def test_setattr_raises(self) -> None:
         d = Decimal(3, "1.000")
         with pytest.raises(AttributeError, match="immutable"):
-            d.foo = 42  # type: ignore[attr-defined]
+            d.foo = 42
 
     def test_delattr_raises(self) -> None:
         d = Decimal(3, "1.000")
         with pytest.raises(AttributeError, match="immutable"):
-            del d._scale  # type: ignore[misc]
+            del d._scale
 
 
 class TestArithmetic:

@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import decimal as _stdlib_decimal
 from functools import total_ordering
+from typing import Any
 
 _ROUND = _stdlib_decimal.ROUND_HALF_EVEN
 
@@ -94,6 +95,15 @@ class Decimal:
     def __delattr__(self, _name: str) -> None:
         msg = "Decimal instances are immutable"
         raise AttributeError(msg)
+
+    # -- Copy support (immutable, return self) -------------------------------
+
+    def __copy__(self) -> Decimal:
+        return self
+
+    def __deepcopy__(self, memo: dict[int, Any]) -> Decimal:
+        memo[id(self)] = self
+        return self
 
     # -- Properties --------------------------------------------------------
 

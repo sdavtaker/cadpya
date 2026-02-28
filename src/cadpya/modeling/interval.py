@@ -7,6 +7,8 @@ uncertainty in state, time, input, and output values.
 
 from __future__ import annotations
 
+from typing import Any
+
 
 class Interval[T]:
     """Interval over a totally-ordered type ``T``.
@@ -51,6 +53,15 @@ class Interval[T]:
         object.__setattr__(self, "_lower_inf", lower_inf)
         object.__setattr__(self, "_upper_inf", upper_inf)
         object.__setattr__(self, "_empty", empty)
+
+    # -- Copy support (immutable, return self) -------------------------------
+
+    def __copy__(self) -> Interval[T]:
+        return self
+
+    def __deepcopy__(self, memo: dict[int, Any]) -> Interval[T]:
+        memo[id(self)] = self
+        return self
 
     # -- Frozen semantics --------------------------------------------------
 
@@ -167,6 +178,41 @@ class Interval[T]:
         # Check if self.upper < other.lower or self.lower > other.upper
         # accounting for closure and infinity
         return not (self._is_strictly_below(other) or other._is_strictly_below(self))
+
+    def intersection(self, other: Interval[T]) -> Interval[T]:
+        """Compute the intersection of two intervals.
+
+        Returns the empty interval if they don't overlap.
+        """
+        if self._empty or other._empty:
+            return Interval.empty(self._lower)
+        if not self.intersects(other):
+            return Interval.empty(self._lower)
+
+        # Lower bound: max of the two lowers
+        lo, lo_closed, lo_inf = _max_lower(self, other)
+        # Upper bound: min of the two uppers
+        hi, hi_closed, hi_inf = _min_upper(self, other)
+
+        return Interval(
+            lo,
+            hi,
+            lower_closed=lo_closed,
+            upper_closed=hi_closed,
+            lower_inf=lo_inf,
+            upper_inf=hi_inf,
+        )
+
+    def is_punctual(self) -> bool:
+        """Return True if this interval contains exactly one point."""
+        return (
+            not self._empty
+            and self._lower_inf == 0
+            and self._upper_inf == 0
+            and self._lower_closed
+            and self._upper_closed
+            and self._lower == self._upper
+        )
 
     # -- Arithmetic --------------------------------------------------------
 
@@ -337,3 +383,49 @@ def _combine_inf(a: int, b: int) -> int:
     if a != 0:
         return a
     return b
+
+
+def _max_lower[T](a: Interval[T], b: Interval[T]) -> tuple[T, bool, int]:
+    """Return the max of two lower bounds as (value, closed, inf)."""
+    # -inf < any finite
+    if a._lower_inf == -1 and b._lower_inf == -1:
+        return a._lower, a._lower_closed and b._lower_closed, -1
+    if a._lower_inf == -1:
+        return b._lower, b._lower_closed, b._lower_inf
+    if b._lower_inf == -1:
+        return a._lower, a._lower_closed, a._lower_inf
+    # +inf cases
+    if a._lower_inf == 1:
+        return a._lower, a._lower_closed, 1
+    if b._lower_inf == 1:
+        return b._lower, b._lower_closed, 1
+    # Both finite
+    if a._lower > b._lower:  # type: ignore[operator]
+        return a._lower, a._lower_closed, 0
+    if b._lower > a._lower:  # type: ignore[operator]
+        return b._lower, b._lower_closed, 0
+    # Equal: closed only if both closed
+    return a._lower, a._lower_closed and b._lower_closed, 0
+
+
+def _min_upper[T](a: Interval[T], b: Interval[T]) -> tuple[T, bool, int]:
+    """Return the min of two upper bounds as (value, closed, inf)."""
+    # +inf > any finite
+    if a._upper_inf == 1 and b._upper_inf == 1:
+        return a._upper, a._upper_closed and b._upper_closed, 1
+    if a._upper_inf == 1:
+        return b._upper, b._upper_closed, b._upper_inf
+    if b._upper_inf == 1:
+        return a._upper, a._upper_closed, a._upper_inf
+    # -inf cases
+    if a._upper_inf == -1:
+        return a._upper, a._upper_closed, -1
+    if b._upper_inf == -1:
+        return b._upper, b._upper_closed, -1
+    # Both finite
+    if a._upper < b._upper:  # type: ignore[operator]
+        return a._upper, a._upper_closed, 0
+    if b._upper < a._upper:  # type: ignore[operator]
+        return b._upper, b._upper_closed, 0
+    # Equal: closed only if both closed
+    return a._upper, a._upper_closed and b._upper_closed, 0

@@ -72,12 +72,12 @@ class TestFrozen:
     def test_setattr_raises(self) -> None:
         iv = Interval.closed(d("0.000"), d("1.000"))
         with pytest.raises(AttributeError, match="immutable"):
-            iv.foo = 42  # type: ignore[attr-defined]
+            iv.foo = 42
 
     def test_delattr_raises(self) -> None:
         iv = Interval.closed(d("0.000"), d("1.000"))
         with pytest.raises(AttributeError, match="immutable"):
-            del iv._lower  # type: ignore[misc]
+            del iv._lower
 
 
 class TestIsEmpty:
@@ -330,6 +330,179 @@ class TestStringRepresentations:
     def test_inf_repr(self) -> None:
         iv = Interval.right_open_inf(d("0.000"))
         assert "+inf" in repr(iv)
+
+
+class TestIntersection:
+    def test_overlapping_closed(self) -> None:
+        a = Interval.closed(d("1.000"), d("3.000"))
+        b = Interval.closed(d("2.000"), d("4.000"))
+        result = a.intersection(b)
+        assert result == Interval.closed(d("2.000"), d("3.000"))
+
+    def test_non_overlapping(self) -> None:
+        a = Interval.closed(d("0.000"), d("1.000"))
+        b = Interval.closed(d("2.000"), d("3.000"))
+        assert a.intersection(b).is_empty()
+
+    def test_with_empty(self) -> None:
+        a = Interval.closed(d("0.000"), d("1.000"))
+        empty = Interval.empty(d("0.000"))
+        assert a.intersection(empty).is_empty()
+        assert empty.intersection(a).is_empty()
+
+    def test_one_contains_other(self) -> None:
+        outer = Interval.closed(d("0.000"), d("4.000"))
+        inner = Interval.closed(d("1.000"), d("3.000"))
+        assert outer.intersection(inner) == inner
+        assert inner.intersection(outer) == inner
+
+    def test_touching_closed_endpoints(self) -> None:
+        a = Interval.closed(d("0.000"), d("1.000"))
+        b = Interval.closed(d("1.000"), d("2.000"))
+        result = a.intersection(b)
+        assert result == Interval.closed(d("1.000"), d("1.000"))
+        assert result.is_punctual()
+
+    def test_touching_open_endpoints_empty(self) -> None:
+        a = Interval.right_open(d("0.000"), d("1.000"))
+        b = Interval.closed(d("1.000"), d("2.000"))
+        assert a.intersection(b).is_empty()
+
+    def test_mixed_closure(self) -> None:
+        a = Interval.closed(d("0.000"), d("2.000"))
+        b = Interval.open(d("1.000"), d("3.000"))
+        result = a.intersection(b)
+        # (1, 2] — open at 1 (from b), closed at 2 (from a since b has 3)
+        assert result == Interval.left_open(d("1.000"), d("2.000"))
+
+    def test_same_interval(self) -> None:
+        a = Interval.closed(d("1.000"), d("2.000"))
+        assert a.intersection(a) == a
+
+    def test_with_inf(self) -> None:
+        a = Interval.right_open_inf(d("1.000"))
+        b = Interval.closed(d("2.000"), d("5.000"))
+        result = a.intersection(b)
+        assert result == Interval.closed(d("2.000"), d("5.000"))
+
+    def test_intersection_closure_both_open(self) -> None:
+        a = Interval.open(d("0.000"), d("2.000"))
+        b = Interval.open(d("1.000"), d("3.000"))
+        result = a.intersection(b)
+        assert result == Interval.open(d("1.000"), d("2.000"))
+
+
+class TestIsPunctual:
+    def test_point_interval(self) -> None:
+        assert Interval.closed(d("1.000"), d("1.000")).is_punctual() is True
+
+    def test_range_interval(self) -> None:
+        assert Interval.closed(d("1.000"), d("2.000")).is_punctual() is False
+
+    def test_empty(self) -> None:
+        assert Interval.empty(d("0.000")).is_punctual() is False
+
+    def test_open_same_bounds(self) -> None:
+        # (1, 1) is empty conceptually but not marked as empty
+        assert Interval.open(d("1.000"), d("1.000")).is_punctual() is False
+
+    def test_inf(self) -> None:
+        assert Interval.right_open_inf(d("0.000")).is_punctual() is False
+
+    def test_int_punctual(self) -> None:
+        assert Interval.closed(1, 1).is_punctual() is True
+
+    def test_int_not_punctual(self) -> None:
+        assert Interval.closed(1, 2).is_punctual() is False
+
+
+class TestIntersectionEdgeCases:
+    """Test intersection edge cases for coverage."""
+
+    def test_left_open_with_closed_at_same_lower(self) -> None:
+        a = Interval.left_open(d("1.000"), d("3.000"))  # (1, 3]
+        b = Interval.closed(d("1.000"), d("2.000"))  # [1, 2]
+        result = a.intersection(b)
+        # Lower: max of (1 open, [1 closed) → (1 open
+        # Upper: min of 3], 2] → 2]
+        assert result == Interval.left_open(d("1.000"), d("2.000"))
+
+    def test_right_open_with_open(self) -> None:
+        a = Interval.right_open(d("0.000"), d("2.000"))  # [0, 2)
+        b = Interval.open(d("1.000"), d("3.000"))  # (1, 3)
+        result = a.intersection(b)
+        assert result == Interval.open(d("1.000"), d("2.000"))
+
+    def test_point_intersect_with_range(self) -> None:
+        a = Interval.closed(d("1.000"), d("1.000"))  # [1, 1]
+        b = Interval.closed(d("0.000"), d("2.000"))  # [0, 2]
+        result = a.intersection(b)
+        assert result == a
+        assert result.is_punctual()
+
+
+class TestIntersectionMoreEdgeCases:
+    def test_intersection_open_inf_with_closed(self) -> None:
+        a = Interval.open_inf(d("0.000"))  # (0, +inf)
+        b = Interval.closed(d("0.000"), d("2.000"))  # [0, 2]
+        result = a.intersection(b)
+        assert result == Interval.left_open(d("0.000"), d("2.000"))
+
+    def test_right_open_inf_same_lower(self) -> None:
+        a = Interval.right_open_inf(d("1.000"))
+        b = Interval.closed(d("1.000"), d("1.000"))
+        result = a.intersection(b)
+        assert result.is_punctual()
+        assert result == Interval.closed(d("1.000"), d("1.000"))
+
+    def test_intersection_both_empty(self) -> None:
+        a = Interval.empty(d("0.000"))
+        b = Interval.empty(d("0.000"))
+        assert a.intersection(b).is_empty()
+
+
+class TestCopySupport:
+    """Test that immutable types support deepcopy."""
+
+    def test_interval_copy_returns_self(self) -> None:
+        import copy
+
+        iv = Interval.closed(d("1.000"), d("2.000"))
+        assert copy.copy(iv) is iv
+        assert copy.deepcopy(iv) is iv
+
+    def test_empty_copy_returns_self(self) -> None:
+        import copy
+
+        iv = Interval.empty(d("0.000"))
+        assert copy.deepcopy(iv) is iv
+
+
+class TestIntersectionInfinity:
+    """Test intersection with infinity bounds."""
+
+    def test_both_inf_upper(self) -> None:
+        a = Interval.right_open_inf(d("1.000"))
+        b = Interval.right_open_inf(d("2.000"))
+        result = a.intersection(b)
+        assert result.lower == d("2.000")
+        assert result.lower_closed is True
+        assert result.upper_inf == 1
+        assert not result.is_empty()
+
+    def test_inf_with_finite(self) -> None:
+        a = Interval.right_open_inf(d("0.000"))
+        b = Interval.closed(d("1.000"), d("3.000"))
+        result = a.intersection(b)
+        assert result == b
+
+    def test_both_inf(self) -> None:
+        a = Interval.right_open_inf(d("0.000"))
+        b = Interval.right_open_inf(d("1.000"))
+        result = a.intersection(b)
+        assert result.lower == d("1.000")
+        assert result.lower_closed is True
+        assert result.upper_inf == 1
 
 
 class TestWithIntegers:
