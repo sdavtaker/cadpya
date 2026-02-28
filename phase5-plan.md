@@ -10,12 +10,85 @@ Implement the Coordinator (Algorithms 2-3), Root Coordinator (Algorithm 4), and 
 
 ## Implementation Order
 
-1. **Engine Protocol** — common interface for Simulator and Coordinator
-2. **Coordinator** — init, BoundTs, star_function, x_function, route
-3. **Root Coordinator** — main simulation loop with BFS queue
-4. **Tests with GP** — simple coupled model (no branching)
-5. **Tests with 4GP** — paper case study (branching, verification against tables)
-6. **Tests with hierarchical model** — nested Coordinators
+1. **EIC coupled model example** — new test exercising External Input Coupling
+2. **Engine Protocol** — common interface for Simulator and Coordinator
+3. **Coordinator** — init, BoundTs, star_function, x_function, route
+4. **Root Coordinator** — main simulation loop with BFS queue
+5. **Tests with GP** — simple coupled model (no branching)
+6. **Tests with 4GP** — paper case study (branching, verification against tables)
+7. **Tests with hierarchical model** — nested Coordinators
+8. **Tests with EIC model** — EIC routing through sub-Coordinator
+
+---
+
+## Step 0: EIC Coupled Model Example
+
+**File**: `tests/coupled_models/test_eic.py`
+
+### Description
+
+A fourth coupled model example that exercises External Input Coupling (EIC). None of the existing examples (GP, 4GP, hierarchical) route external input into a sub-coupled model.
+
+The topology: two coupled models connected at the top level.
+
+```
+Top-level:
+  Generators = CoupledModel(G1, G2) --[Z_{Generators,GPP}]--> GPP
+  GPP = CoupledModel(G3, G4, P)     --[Z_{GPP,self}]--------> (output)
+
+Generators (sub-coupled, EOC only):
+  G1 --[Z_{G1,self}]--> (output)    [job 1]
+  G2 --[Z_{G2,self}]--> (output)    [job 2]
+
+GPP (sub-coupled, has EIC + IC + EOC):
+  (input) --[Z_{self,P}]--> P       [EIC: external input routed to P]
+  G3 --[Z_{G3,P}]---------> P       [IC: job 3]
+  G4 --[Z_{G4,P}]---------> P       [IC: job 4]
+  P  --[Z_{P,self}]-------> (output) [EOC]
+```
+
+This is semantically equivalent to the flat 4GP model: 4 generators all feed 1 processor, producing the same set of reachable trajectories. But the routing path for G1/G2's output goes: G1 fires → Generators EOC → top-level Z → GPP EIC → GPP's internal Z_{self,P} → P's x_function.
+
+### Key: EIC in the GPP sub-model
+
+The GPP sub-coupled model has `"self"` as an influencer of `"P"`:
+- `influencers["P"] = frozenset({"G3", "G4", "self"})` — G3, G4, and external input all influence P
+- `translations[("self", "P")]` = identity (pass through the job ID interval)
+
+This exercises the `x_function` path in the Coordinator: when the GPP Coordinator receives an external event, it routes it to P via `Z_{self,P}`.
+
+### Components
+
+**Generators sub-model:**
+- `"G1"`, `"G2"`: Generator instances
+- `I["G1"] = I["G2"] = frozenset()`
+- `I["self"] = frozenset({"G1", "G2"})` — both produce external output
+- `Z_{G1,self}`: → job 1, `Z_{G2,self}`: → job 2
+
+**GPP sub-model:**
+- `"G3"`, `"G4"`: Generator instances
+- `"P"`: Processor instance
+- `I["G3"] = I["G4"] = frozenset()`
+- `I["P"] = frozenset({"G3", "G4", "self"})` — **"self" here is the EIC**
+- `I["self"] = frozenset({"P"})` — EOC
+- `Z_{self,P}`: identity (EIC), `Z_{G3,P}`: → job 3, `Z_{G4,P}`: → job 4, `Z_{P,self}`: identity
+
+**Top-level:**
+- `"Generators"`: coupled spec (Generators sub-model)
+- `"GPP"`: coupled spec (GPP sub-model)
+- `I["Generators"] = frozenset()`
+- `I["GPP"] = frozenset({"Generators"})` — Generators output feeds GPP
+- `I["self"] = frozenset({"GPP"})` — GPP output is external
+- `Z_{Generators,GPP}`: identity, `Z_{GPP,self}`: identity
+
+### Test cases (data structure only — simulation in Step 8)
+
+- Construct Generators sub-model — validation passes
+- Construct GPP sub-model — validation passes, `"self"` in `I["P"]`
+- Construct top-level — validation passes
+- Verify GPP has EIC: `"self"` in `influencers["P"]`
+- Verify `("self", "P")` in GPP translations
+- Call `Z_{self,P}` with job ID interval → identity pass-through
 
 ---
 
