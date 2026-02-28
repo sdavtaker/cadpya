@@ -59,6 +59,11 @@ All models follow the same pattern:
 - **AtomicModel Protocol**: `@runtime_checkable` structural typing interface (`Protocol[S, T, X, Y]`). Models satisfy it without inheritance. Methods: `internal_transition()`, `external_transition(elapsed, x)`, `output()`, `time_advance()`, `state_interval` property.
 - **Simulator**: Algorithm 1 from VWD21. Wraps one atomic model. `init(q_state, q_time, t)` constructs the model and sets `t_last`/`t_next`. `star_function(t)` handles internal events (validates `t ⊆ t_next`). `x_function(x, t)` handles external events with elapsed-time computation (confluent case clamps lower bound to 0 when `t` intersects `t_last`).
 
+### Coupled Models (`src/cadpya/modeling/`)
+
+- **ComponentSpec**: Frozen dataclass describing one sub-model. Either atomic (`model_factory` + `initial_state` + `initial_elapsed`) or coupled (nested `CoupledModel`). Factory methods: `ComponentSpec.atomic()`, `ComponentSpec.coupled()`.
+- **CoupledModel[T]**: Pure data structure for coupling topology `C = <X, Y, D, M, I, Z, SELECT>`. Components dict, influencers (frozenset per component), translations keyed by `(source, dest)` tuples, SELECT callable, zero_time. `"self"` reserved for coupled model boundary (EOC/EIC). Validates referential integrity at construction: all influencer references exist, all components have entries, translations match influencers bidirectionally.
+
 ## Git Workflow
 
 - Create a feature branch for every change
