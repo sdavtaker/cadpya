@@ -22,17 +22,12 @@ Semantically equivalent to flat 4GP: 4 generators all feed 1 processor.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
-
 from cadpya.basic_models.generator import OUTPUT_VALUE, ZERO_STATE, Generator
 from cadpya.basic_models.processor import ZERO_TOCJ, Processor, ProcessorState
 from cadpya.modeling.component import ComponentSpec
 from cadpya.modeling.coupled import CoupledModel
 from cadpya.modeling.decimal import Decimal
 from cadpya.modeling.interval import Interval
-
-if TYPE_CHECKING:
-    from collections.abc import Callable
 
 ZERO = Decimal.zero(3)
 ZERO_TIME = Interval.closed(ZERO, ZERO)
@@ -42,7 +37,7 @@ def _select_alphabetical(candidates: frozenset[str]) -> str:
     return sorted(candidates)[0]
 
 
-def _make_z_job(job_id: int) -> Callable[[Interval[Any]], Interval[Any]]:
+def _make_z_job(job_id: int):
     """Create Z function that maps any output to a job ID interval."""
 
     def translate(y: Interval) -> Interval:  # type: ignore[type-arg]
