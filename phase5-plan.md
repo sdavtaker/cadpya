@@ -466,7 +466,7 @@ def simulate(self, coupled_model, t, max_steps=None, max_branches=None):
     while queue:
         branch = queue.popleft()
         if branch.coordinator.t_next is None:
-            continue  # passive, skip
+            continue  # passive — discard, no future events possible
 
         t_current = branch.coordinator.t_next
 
@@ -478,8 +478,10 @@ def simulate(self, coupled_model, t, max_steps=None, max_branches=None):
             output = branch.coordinator.execute_branch(actions[0])
             log_step(log, branch, actions[0], output)
             branch.step += 1
+            # Only re-enqueue if still active (not passive)
             if branch.coordinator.t_next is not None:
-                queue.append(branch)  # re-enqueue
+                queue.append(branch)
+            # else: passive — discard safely
         else:
             # Branching — clone state for each branch
             for i, action in enumerate(actions):
@@ -492,8 +494,10 @@ def simulate(self, coupled_model, t, max_steps=None, max_branches=None):
                     branch.step + 1,
                 )
                 log_step(log, new_branch, action, output)
+                # Only enqueue branches that are still active
                 if clone.t_next is not None:
                     queue.append(new_branch)
+                # else: passive — discard safely, no more events
 
     return log
 ```
@@ -537,9 +541,13 @@ class LogEntry:
     t_next: str | None
 ```
 
+### Passive branch pruning
+
+Branches that reach passivity (`t_next is None`) are terminal — no future events are possible. These branches are safely discarded from the BFS queue instead of being re-enqueued. This is a natural pruning mechanism that bounds the queue growth: any branch where all engines have fired their last event and no more transitions are scheduled is simply dropped.
+
 ### Safety limits
 
-The BFS queue can grow exponentially. Safety parameters:
+The BFS queue can grow exponentially. Safety parameters (in addition to passive pruning):
 - `max_steps`: total steps across all branches (default: 10000)
 - `max_branches`: maximum number of active branches (default: 1000)
 
