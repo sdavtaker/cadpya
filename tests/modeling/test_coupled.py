@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING, Any
+
 import pytest
 
 from cadpya.basic_models.generator import ZERO_STATE, Generator
@@ -10,6 +12,9 @@ from cadpya.modeling.component import ComponentSpec
 from cadpya.modeling.coupled import CoupledModel
 from cadpya.modeling.decimal import Decimal
 from cadpya.modeling.interval import Interval
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 ZERO = Decimal.zero(3)
 ZERO_TIME = Interval.closed(ZERO, ZERO)
@@ -23,7 +28,7 @@ def _identity(y: Interval) -> Interval:  # type: ignore[type-arg]
     return y
 
 
-def _make_job(job_id: int):
+def _make_job(job_id: int) -> Callable[[Interval[Any]], Interval[Any]]:
     def translate(y: Interval) -> Interval:  # type: ignore[type-arg]
         return Interval.closed(job_id, job_id)
 
