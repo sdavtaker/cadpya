@@ -306,13 +306,23 @@ class Coordinator[T, Y]:
             for name in imminents
             if (tn_ := self._engines[name].t_next) is not None and tn_.intersects(limit)
         ]
-        return [BranchAction(engine_name=name, limit=limit) for name in relevant]
+        branches = [BranchAction(engine_name=name, limit=limit) for name in relevant]
+
+        # Skip branch: "nothing fires in this limit" — when the limit is
+        # strictly inside any imminent's t_next, the event could happen later.
+        any_could_skip = any(
+            (tn_ := self._engines[name].t_next) is not None and limit != tn_ for name in relevant
+        )
+        if any_could_skip:
+            branches.append(BranchAction(engine_name="", limit=limit))
+
+        return branches
 
     def execute_branch(self, action: BranchAction) -> Interval[Any] | None:
         """Execute one branch action: route the chosen engine, update BoundTs.
 
-        If action.engine_name is empty string, this is a "skip" branch
-        (subtract limit from all imminents).
+        If action.engine_name is empty string, this is a "skip/nothing" branch
+        (subtract limit from all imminents — no engine fires in this interval).
         """
         if action.engine_name == "":
             # Skip branch: subtract the punctual limit from imminent engines
@@ -327,8 +337,11 @@ class Coordinator[T, Y]:
     def _subtract_limit(self, limit: Interval[T]) -> None:
         """Subtract limit from all imminent engines' t_next.
 
-        For engines whose t_next intersects the limit, create new interval
-        excluding the limit point. For punctual limit [v,v], [a,b] becomes (v,b].
+        For engines whose t_next intersects the limit, restrict t_next to
+        exclude the limit interval:
+        - Punctual limit [v,v]: [a,b] becomes (v,b] (open lower at v)
+        - Non-punctual limit [a,b): [c,d] becomes [b,d] (lower = limit.upper,
+          closedness inverted from limit's upper_closed)
         """
         for eng in self._engines.values():
             if eng.t_next is not None and eng.t_next.intersects(limit):
@@ -343,7 +356,17 @@ class Coordinator[T, Y]:
                         lower_inf=tn.lower_inf,
                         upper_inf=tn.upper_inf,
                     )
-                    # Force-set via object.__setattr__ since Interval is frozen
+                    object.__setattr__(eng, "_t_next", new_tn)
+                elif not limit.is_punctual():
+                    # Non-punctual: restrict lower bound to limit's upper
+                    new_tn = Interval(
+                        limit.upper,
+                        tn.upper,
+                        lower_closed=not limit.upper_closed,
+                        upper_closed=tn.upper_closed,
+                        lower_inf=0,
+                        upper_inf=tn.upper_inf,
+                    )
                     object.__setattr__(eng, "_t_next", new_tn)
 
     def _route(self, engine_name: str, t: Interval[T]) -> Interval[Any] | None:

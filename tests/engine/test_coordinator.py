@@ -413,3 +413,79 @@ class TestCoordinatorDeepCopy:
 
         clone = copy.deepcopy(coord)
         assert clone._coupled_model is coord._coupled_model
+
+
+class TestNonPunctualSkipBranch:
+    def test_non_punctual_skip_branch_created(self) -> None:
+        """When limit is non-punctual and strictly inside t_next, skip branch is added.
+
+        After G1→G2→G3→G4→P→P→P in 4GP, the conflict produces a non-punctual
+        limit where P is imminent. Since limit != P's t_next, a skip branch
+        is created alongside the main P branch.
+        """
+        from tests.coupled_models.test_4gp import make_4gp_model
+
+        model = make_4gp_model()
+        coord: Coordinator[Decimal, int] = Coordinator(model, ZERO)
+        coord.init(ZERO_TIME)
+
+        # Fire all 4 generators, then P fires 3 times
+        for _ in range(7):
+            assert coord.t_next is not None
+            branches = coord.compute_branches(coord.t_next)
+            main = next(b for b in branches if b.engine_name)
+            coord.execute_branch(main)
+
+        # Conflict: P t_next=[1.973, 2.005], Gs t_next=[1.994, 2.010]
+        # Limit = [1.973, 1.994) — P first imminent, restricted by Gs' lower
+        assert coord.t_next is not None
+        branches = coord.compute_branches(coord.t_next)
+        # P + skip = 2 branches (Gs don't intersect this limit)
+        assert len(branches) == 2
+        assert branches[0].engine_name == "P"
+        assert branches[1].engine_name == ""  # skip
+
+    def test_non_punctual_subtract_limit(self) -> None:
+        """After executing non-punctual skip branch, engines' t_next is restricted."""
+        from tests.coupled_models.test_4gp import make_4gp_model
+
+        model = make_4gp_model()
+        coord: Coordinator[Decimal, int] = Coordinator(model, ZERO)
+        coord.init(ZERO_TIME)
+
+        # Fire all 4 generators, then P fires 3 times
+        for _ in range(7):
+            assert coord.t_next is not None
+            branches = coord.compute_branches(coord.t_next)
+            main = next(b for b in branches if b.engine_name)
+            coord.execute_branch(main)
+
+        assert coord.t_next is not None
+        branches = coord.compute_branches(coord.t_next)
+        skip = next(b for b in branches if b.engine_name == "")
+
+        # Limit is [1.973, 1.994) — open upper
+        assert skip.limit.lower == d("1.973")
+        assert skip.limit.upper == d("1.994")
+        assert skip.limit.upper_closed is False
+
+        # Execute skip branch — P's t_next lower should be restricted
+        coord.execute_branch(skip)
+
+        p_eng = coord.engines["P"]
+        assert p_eng.t_next is not None
+        # P's t_next lower restricted from 1.973 to 1.994 (limit.upper, closed
+        # because limit.upper_closed was False → not False = True)
+        assert p_eng.t_next.lower == d("1.994")
+        assert p_eng.t_next.lower_closed is True
+        assert p_eng.t_next.upper == d("2.005")
+
+    def test_no_skip_when_limit_equals_t_next(self) -> None:
+        """No skip branch when limit == all engines' t_next."""
+        model = make_gp_model()
+        coord: Coordinator[Decimal, int] = Coordinator(model, ZERO)
+        coord.init(ZERO_TIME)
+
+        branches = coord.compute_branches(PERIOD)
+        skip_branches = [b for b in branches if b.engine_name == ""]
+        assert len(skip_branches) == 0
