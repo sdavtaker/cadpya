@@ -73,6 +73,29 @@ Run an example:
 pipenv run python examples/example_4gp.py
 ```
 
+## Model Diagrams
+
+Generate a Mermaid flowchart from any coupled model for quick debugging:
+
+```python
+from cadpya.modeling.diagram import to_mermaid
+
+print(to_mermaid(model, title="My Model"))
+```
+
+Output (paste into GitHub markdown or [mermaid.live](https://mermaid.live)):
+
+```mermaid
+flowchart TD
+    G["G (Generator)"]
+    P["P (Processor)"]
+    self(["self"])
+    G --> P
+    P --> self
+```
+
+Nested coupled models are rendered as subgraphs with all internal couplings visible.
+
 ## Core Concepts
 
 - **Interval[T]**: Generic interval over any totally-ordered type. Supports open/closed bounds, infinity, Minkowski addition, and subtraction.
