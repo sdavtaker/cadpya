@@ -66,6 +66,10 @@ All models follow the same pattern:
 - **ComponentSpec**: Frozen dataclass describing one sub-model. Either atomic (`model_factory` + `initial_state` + `initial_elapsed`) or coupled (nested `CoupledModel`). Factory methods: `ComponentSpec.atomic()`, `ComponentSpec.coupled()`.
 - **CoupledModel[T]**: Pure data structure for coupling topology `C = <X, Y, D, M, I, Z, SELECT>`. Components dict, influencers (frozenset per component), translations keyed by `(source, dest)` tuples, SELECT callable, zero_time. `"self"` reserved for coupled model boundary (EOC/EIC). Validates referential integrity at construction: all influencer references exist, all components have entries, translations match influencers bidirectionally.
 
+### Utilities (`src/cadpya/modeling/`)
+
+- **`diagram.py`**: `to_mermaid(model, title="")` generates a Mermaid flowchart string from a `CoupledModel`. Recursively expands nested coupled models as subgraphs. Useful for debugging coupling topology.
+
 ### Examples (`examples/`)
 
 - **`example_4gp.py`**: 4 Generators + 1 Processor (paper case study). Shows basic coupled model construction and simulation.
