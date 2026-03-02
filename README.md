@@ -94,7 +94,30 @@ flowchart TD
     P --> self
 ```
 
-Nested coupled models are rendered as subgraphs with all internal couplings visible.
+Nested coupled models are rendered as subgraphs with all internal couplings visible. For example, a hierarchical model where two sub-coupled models (Left with G1, G2 and Right with G3, G4) feed a Processor:
+
+```mermaid
+flowchart TD
+    subgraph Left["Left"]
+        Left__G1["G1 (Generator)"]
+        Left__G2["G2 (Generator)"]
+        Left__self(["self"])
+        Left__G1 --> Left__self
+        Left__G2 --> Left__self
+    end
+    P["P (Processor)"]
+    subgraph Right["Right"]
+        Right__G3["G3 (Generator)"]
+        Right__G4["G4 (Generator)"]
+        Right__self(["self"])
+        Right__G3 --> Right__self
+        Right__G4 --> Right__self
+    end
+    self(["self"])
+    Left --> P
+    P --> self
+    Right --> P
+```
 
 ## Core Concepts
 
