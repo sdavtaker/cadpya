@@ -52,7 +52,7 @@ All models follow the same pattern:
 - Transition functions: `internal_transition()`, `external_transition(elapsed, x)` — mutate `_state`
 - `output()` → `Interval[Output]`, `time_advance()` → `Interval[Time] | None` (None = passive)
 - Type aliases via PEP 695 `type` statement: `type State = ...`, `type Time = ...`, etc.
-- Models: Generator (scalar state, periodic output), Processor (tocj + job queue), Counter (phase enum + count)
+- Models: Generator (scalar state, periodic output, customizable via `make_generator_factory`), Processor (tocj + job queue), Counter (phase enum + count), Accumulator (phase + running total, immediate output on input)
 
 ### Engine (`src/cadpya/engine/`)
 
@@ -66,8 +66,17 @@ All models follow the same pattern:
 - **ComponentSpec**: Frozen dataclass describing one sub-model. Either atomic (`model_factory` + `initial_state` + `initial_elapsed`) or coupled (nested `CoupledModel`). Factory methods: `ComponentSpec.atomic()`, `ComponentSpec.coupled()`.
 - **CoupledModel[T]**: Pure data structure for coupling topology `C = <X, Y, D, M, I, Z, SELECT>`. Components dict, influencers (frozenset per component), translations keyed by `(source, dest)` tuples, SELECT callable, zero_time. `"self"` reserved for coupled model boundary (EOC/EIC). Validates referential integrity at construction: all influencer references exist, all components have entries, translations match influencers bidirectionally.
 
+### Examples (`examples/`)
+
+- **`example_4gp.py`**: 4 Generators + 1 Processor (paper case study). Shows basic coupled model construction and simulation.
+- **`example_counter.py`**: 2 Generators (fast/slow) + 1 Counter. Uses `make_generator_factory` for custom periods. Fast gen sends ADD, slow gen sends RESET.
+- **`example_job_tracker.py`**: 4G + 1P + 4 Accumulators. Demonstrates indicator Z functions for uncertain routing.
+- **`log_utils.py`**: Shared JSONL log writer converting `list[LogEntry]` to JSONL via `dataclasses.asdict`.
+- Generated logs go to `examples/logs/` (gitignored). See `log-format.md` for the log schema reference.
+
 ## Git Workflow
 
 - Create a feature branch for every change
 - Open a PR for review — never push directly to main
 - Use `gh` CLI for GitHub operations, not raw git push
+- **Always update README.md and CLAUDE.md** when making changes to models, examples, architecture, or conventions

@@ -2,7 +2,13 @@
 
 from __future__ import annotations
 
-from cadpya.basic_models.generator import OUTPUT_VALUE, PERIOD, ZERO_STATE, Generator
+from cadpya.basic_models.generator import (
+    OUTPUT_VALUE,
+    PERIOD,
+    ZERO_STATE,
+    Generator,
+    make_generator_factory,
+)
 from cadpya.modeling.decimal import Decimal
 from cadpya.modeling.interval import Interval
 
@@ -88,6 +94,35 @@ class TestExternalTransition:
         gen.external_transition(elapsed, x)
         # State only affected by elapsed, not x
         assert gen.state_interval == Interval.closed(d("0.100"), d("0.100"))
+
+
+class TestMakeGeneratorFactory:
+    def test_custom_period_and_output(self) -> None:
+        custom_period = Interval.closed(d("0.090"), d("0.110"))
+        custom_output = Interval.closed(d("5.000"), d("6.000"))
+        factory = make_generator_factory(custom_period, custom_output)
+        gen = factory(ZERO_STATE, ZERO_TIME)
+
+        assert gen.time_advance() == custom_period
+        assert gen.output() == custom_output
+
+    def test_default_generator_unchanged(self) -> None:
+        """Default Generator still uses module-level constants."""
+        gen = Generator(ZERO_STATE, ZERO_TIME)
+        assert gen.time_advance() == PERIOD
+        assert gen.output() == OUTPUT_VALUE
+
+    def test_factory_produces_independent_instances(self) -> None:
+        custom_period = Interval.closed(d("0.500"), d("0.600"))
+        custom_output = Interval.closed(d("1.000"), d("2.000"))
+        factory = make_generator_factory(custom_period, custom_output)
+        g1 = factory(ZERO_STATE, ZERO_TIME)
+        g2 = factory(ZERO_STATE, ZERO_TIME)
+
+        g1.internal_transition()
+        # g2 should be unaffected
+        assert g2.state_interval == ZERO_STATE
+        assert g1.time_advance() == custom_period
 
 
 class TestFullCycle:
