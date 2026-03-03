@@ -21,7 +21,8 @@ class TestLogStructure:
         """Every parent_branch references a branch that appears in the log."""
         log = _run_4gp()
         branch_ids = {e.branch for e in log}
-        # Root branch "0" might not appear as an entry branch but is valid
+        # Root branch "0" may not appear as a log entry if branching happens
+        # immediately at step 0 (before any root-branch component fires).
         branch_ids.add("0")
 
         for entry in log:
@@ -56,4 +57,34 @@ class TestLogStructure:
             for i in range(1, len(steps)):
                 assert steps[i] >= steps[i - 1], (
                     f"Branch {branch_id}: step {steps[i]} < {steps[i - 1]}"
+                )
+
+    def test_kind_field_valid_values(self) -> None:
+        """Every log entry has a kind of 'atomic', 'coupled', or 'skip'."""
+        log = _run_4gp()
+        valid_kinds = {"atomic", "coupled", "skip"}
+        for entry in log:
+            assert entry.kind in valid_kinds, (
+                f"Branch {entry.branch} has invalid kind '{entry.kind}'"
+            )
+
+    def test_skip_entries_have_empty_component_and_no_output(self) -> None:
+        """Skip entries must have component='' and output=None."""
+        log = _run_4gp()
+        for entry in log:
+            if entry.kind == "skip":
+                assert entry.component == "", (
+                    f"Skip entry {entry.branch} has non-empty component '{entry.component}'"
+                )
+                assert entry.output is None, (
+                    f"Skip entry {entry.branch} has unexpected output '{entry.output}'"
+                )
+
+    def test_non_skip_entries_have_non_empty_component(self) -> None:
+        """Atomic and coupled entries must have a non-empty component name."""
+        log = _run_4gp()
+        for entry in log:
+            if entry.kind != "skip":
+                assert entry.component != "", (
+                    f"Non-skip entry {entry.branch} (kind={entry.kind}) has empty component"
                 )

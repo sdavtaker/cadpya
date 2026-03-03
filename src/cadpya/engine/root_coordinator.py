@@ -29,6 +29,7 @@ class LogEntry:
 
     branch: str
     component: str
+    kind: str  # "atomic", "coupled", or "skip"
     output: str | None
     parent_branch: str | None
     step: int
@@ -105,10 +106,13 @@ class RootCoordinator[T]:
                 total_steps += 1
 
                 if action.engine_name:
+                    engine = branch.coordinator.engines.get(action.engine_name)
+                    kind = "coupled" if isinstance(engine, Coordinator) else "atomic"
                     log.append(
                         LogEntry(
                             step=branch.step,
                             branch=branch.branch_id,
+                            kind=kind,
                             parent_branch=branch.parent_branch_id,
                             time=str(action.limit),
                             component=action.engine_name,
@@ -137,16 +141,21 @@ class RootCoordinator[T]:
                     new_id = f"{branch.branch_id}.{i}"
 
                     if action.engine_name:
-                        log.append(
-                            LogEntry(
-                                step=branch.step,
-                                branch=new_id,
-                                parent_branch=branch.branch_id,
-                                time=str(action.limit),
-                                component=action.engine_name,
-                                output=str(output) if output is not None else None,
-                            )
+                        engine = branch.coordinator.engines.get(action.engine_name)
+                        kind = "coupled" if isinstance(engine, Coordinator) else "atomic"
+                    else:
+                        kind = "skip"
+                    log.append(
+                        LogEntry(
+                            step=branch.step,
+                            branch=new_id,
+                            kind=kind,
+                            parent_branch=branch.branch_id,
+                            time=str(action.limit),
+                            component=action.engine_name,
+                            output=str(output) if output is not None else None,
                         )
+                    )
 
                     new_branch = _SimulationBranch(
                         branch_id=new_id,
