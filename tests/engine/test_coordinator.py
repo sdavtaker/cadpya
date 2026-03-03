@@ -75,9 +75,10 @@ class TestCoordinatorGPSimulation:
         coord.init(ZERO_TIME)
 
         branches = coord.compute_branches(PERIOD)
-        output = coord.execute_branch(branches[0])
+        component_output, eoc_output = coord.execute_branch(branches[0])
         # G's output goes to P (IC) and NOT to "self" (no EOC from G)
-        assert output is None
+        assert component_output is not None  # G produces its output value
+        assert eoc_output is None
 
     def test_after_first_step_processor_has_job(self) -> None:
         """After G fires, P should have job 1 in queue."""
@@ -127,10 +128,11 @@ class TestCoordinatorGPSimulation:
         assert len(branches2) == 1
         assert branches2[0].engine_name == "P"
 
-        output = coord.execute_branch(branches2[0])
-        # P has EOC → output should be the job ID
-        assert output is not None
-        assert output == Interval.closed(1, 1)
+        component_output, eoc_output = coord.execute_branch(branches2[0])
+        # P has EOC → both component and eoc output should be the job ID
+        assert component_output is not None
+        assert eoc_output is not None
+        assert eoc_output == Interval.closed(1, 1)
 
 
 class TestCoordinatorXFunction:
@@ -277,9 +279,10 @@ class TestCoordinatorPunctualBranching:
         assert len(branches) == 1
         assert branches[0].engine_name == "P"
 
-        output = coord.execute_branch(branches[0])
-        assert output is not None
-        assert output == Interval.closed(1, 1)
+        component_output, eoc_output = coord.execute_branch(branches[0])
+        assert component_output is not None
+        assert eoc_output is not None
+        assert eoc_output == Interval.closed(1, 1)
 
 
 class TestCoordinatorWithInfinity:

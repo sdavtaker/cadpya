@@ -14,11 +14,11 @@ ZERO_TIME = Interval.closed(ZERO, ZERO)
 
 class TestHierarchicalEquivalence:
     def test_same_distinct_output_values(self) -> None:
-        """Both models should produce the same set of distinct output values.
+        """Both models should produce the same set of distinct processor output values.
 
         The hierarchical model has different branching structure (2 sub-coordinators
         vs 4 flat generators), so BFS explores paths in different order. But the
-        set of possible outputs (job IDs) should be identical.
+        set of possible job IDs produced by P should be identical.
         """
         rc: RootCoordinator[Decimal] = RootCoordinator()
         max_steps = 200
@@ -26,10 +26,14 @@ class TestHierarchicalEquivalence:
         flat_log = rc.simulate(make_4gp_model(), ZERO_TIME, max_steps=max_steps)
         hier_log = rc.simulate(make_hierarchical_model(), ZERO_TIME, max_steps=max_steps)
 
-        flat_outputs = {e.output for e in flat_log if e.output is not None}
-        hier_outputs = {e.output for e in hier_log if e.output is not None}
+        flat_p_outputs = {
+            e.output for e in flat_log if e.component == "P" and e.output is not None
+        }
+        hier_p_outputs = {
+            e.output for e in hier_log if e.component == "P" and e.output is not None
+        }
 
-        assert flat_outputs == hier_outputs
+        assert flat_p_outputs == hier_p_outputs
 
     def test_both_produce_processor_outputs(self) -> None:
         """Both models should eventually have the processor fire and produce output."""

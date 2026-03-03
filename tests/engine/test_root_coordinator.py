@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import pytest
 
+from cadpya.basic_models.generator import OUTPUT_VALUE
 from cadpya.engine.root_coordinator import RootCoordinator, SimulationLimitError
 from cadpya.modeling.decimal import Decimal
 from cadpya.modeling.interval import Interval
@@ -95,13 +96,13 @@ class TestFourGPSimulation:
         step_1_entries = [e for e in log if e.step == 1]
         assert len(step_1_entries) > 0
 
-    def test_4gp_generator_output_not_eoc(self) -> None:
-        """Generator output goes to P (IC), not to coupled model output (EOC)."""
+    def test_4gp_generator_output_is_output_value(self) -> None:
+        """Generator output is logged even though it routes via IC (not EOC)."""
         model = make_4gp_model()
         rc: RootCoordinator[Decimal] = RootCoordinator()
         log = rc.simulate(model, ZERO_TIME, max_steps=4)
         gen_entries = [e for e in log if e.component.startswith("G")]
-        assert all(e.output is None for e in gen_entries)
+        assert all(e.output == str(OUTPUT_VALUE) for e in gen_entries)
 
     def test_4gp_processor_eventually_fires(self) -> None:
         """After all 4 generators fire in a branch, P should fire."""
