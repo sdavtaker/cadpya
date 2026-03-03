@@ -224,10 +224,12 @@ class Coordinator[T, Y]:
         # Execute first non-skip action (skip actions have empty engine_name)
         for action in actions:
             if action.engine_name:
-                return self.execute_branch(action)
+                _, eoc_y = self.execute_branch(action)
+                return eoc_y
 
         # All skip actions — execute first one
-        return self.execute_branch(actions[0])
+        _, eoc_y = self.execute_branch(actions[0])
+        return eoc_y
 
     def compute_branches(self, t: Interval[T]) -> list[BranchAction]:
         """Compute possible branches without side effects (Algorithm 3 logic).
@@ -318,21 +320,29 @@ class Coordinator[T, Y]:
 
         return branches
 
-    def execute_branch(self, action: BranchAction) -> Interval[Any] | None:
+    def execute_branch(
+        self, action: BranchAction
+    ) -> tuple[Interval[Any] | None, Interval[Any] | None]:
         """Execute one branch action: route the chosen engine, update BoundTs.
 
         If action.engine_name is empty string, this is a "skip/nothing" branch
         (subtract limit from all imminents — no engine fires in this interval).
+
+        Returns:
+            (component_output, eoc_output) where component_output is the raw
+            output of the engine that fired (for logging), and eoc_output is
+            the EOC-translated output sent to the parent coordinator (or None
+            if no EOC connection exists).
         """
         if action.engine_name == "":
             # Skip branch: subtract the punctual limit from imminent engines
             self._subtract_limit(action.limit)
             self._bound_ts()
-            return None
+            return None, None
 
-        y = self._route(action.engine_name, action.limit)
+        component_y, eoc_y = self._route(action.engine_name, action.limit)
         self._bound_ts()
-        return y
+        return component_y, eoc_y
 
     def _subtract_limit(self, limit: Interval[T]) -> None:
         """Subtract limit from all imminent engines' t_next.
@@ -369,13 +379,21 @@ class Coordinator[T, Y]:
                     )
                     object.__setattr__(eng, "_t_next", new_tn)
 
-    def _route(self, engine_name: str, t: Interval[T]) -> Interval[Any] | None:
-        """Route engine's output to influenced engines (Algorithm 3 route)."""
+    def _route(
+        self, engine_name: str, t: Interval[T]
+    ) -> tuple[Interval[Any] | None, Interval[Any] | None]:
+        """Route engine's output to influenced engines (Algorithm 3 route).
+
+        Returns:
+            (component_output, eoc_output) where component_output is the raw
+            output of the engine (for logging), and eoc_output is the
+            EOC-translated output to the parent (None if no EOC connection).
+        """
         eng = self._engines[engine_name]
         y = eng.star_function(t)
 
         if y is None:
-            return None
+            return None, None
 
         # Route output to influenced engines (IC)
         for dest in self._influenced_by.get(engine_name, set()):
@@ -387,9 +405,9 @@ class Coordinator[T, Y]:
         eoc_sources = self._coupled_model.influencers.get("self", frozenset())
         if engine_name in eoc_sources:
             z_eoc = self._coupled_model.translations[(engine_name, "self")]
-            return z_eoc(y)
+            return y, z_eoc(y)
 
-        return None
+        return y, None
 
     def x_function(self, x: Interval[Any], t: Interval[T]) -> None:
         """Route external input to EIC targets (Algorithm 2 x-function)."""

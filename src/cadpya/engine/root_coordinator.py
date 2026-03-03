@@ -102,7 +102,7 @@ class RootCoordinator[T]:
             if len(actions) == 1:
                 # No branching — execute in place
                 action = actions[0]
-                output = branch.coordinator.execute_branch(action)
+                component_output, _ = branch.coordinator.execute_branch(action)
                 total_steps += 1
 
                 if action.engine_name:
@@ -116,7 +116,7 @@ class RootCoordinator[T]:
                             parent_branch=branch.parent_branch_id,
                             time=str(action.limit),
                             component=action.engine_name,
-                            output=str(output) if output is not None else None,
+                            output=str(component_output) if component_output is not None else None,
                         )
                     )
 
@@ -135,7 +135,7 @@ class RootCoordinator[T]:
                         break
 
                     clone = copy.deepcopy(branch.coordinator)
-                    output = clone.execute_branch(action)
+                    component_output, _ = clone.execute_branch(action)
                     total_steps += 1
 
                     new_id = f"{branch.branch_id}.{i}"
@@ -153,7 +153,7 @@ class RootCoordinator[T]:
                             parent_branch=branch.branch_id,
                             time=str(action.limit),
                             component=action.engine_name,
-                            output=str(output) if output is not None else None,
+                            output=str(component_output) if component_output is not None else None,
                         )
                     )
 
