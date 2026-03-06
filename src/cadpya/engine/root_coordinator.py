@@ -15,6 +15,8 @@ from typing import TYPE_CHECKING, Any
 from cadpya.engine.coordinator import Coordinator
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from cadpya.modeling.coupled import CoupledModel
     from cadpya.modeling.interval import Interval
 
@@ -56,6 +58,8 @@ class RootCoordinator[T]:
         *,
         max_steps: int = 10000,
         max_branches: int = 1000,
+        progress_interval: int = 0,
+        on_progress: Callable[[int], None] | None = None,
     ) -> list[LogEntry]:
         """Run BFS simulation, returning structured log.
 
@@ -66,6 +70,8 @@ class RootCoordinator[T]:
                 gracefully when reached and returns the log collected so far.
             max_branches: maximum active branches in queue; raises
                 SimulationLimitError if exceeded (indicates exponential blowup).
+            progress_interval: call on_progress every this many steps (0 = disabled).
+            on_progress: callback receiving total_steps; called when progress_interval > 0.
 
         Returns:
             List of LogEntry recording each step.
@@ -81,10 +87,19 @@ class RootCoordinator[T]:
 
         log: list[LogEntry] = []
         total_steps = 0
+        last_reported = 0
 
         while queue:
             if total_steps >= max_steps:
                 break
+
+            if (
+                on_progress is not None
+                and progress_interval > 0
+                and total_steps - last_reported >= progress_interval
+            ):
+                on_progress(total_steps)
+                last_reported = total_steps
 
             branch = queue.popleft()
 

@@ -10,6 +10,7 @@ The counter accumulates ADDs and outputs the count on RESET.
 from __future__ import annotations
 
 import argparse
+import time
 from pathlib import Path
 from typing import Any
 
@@ -91,11 +92,23 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="2 Generators + Counter simulation")
     parser.add_argument("--max-steps", type=int, default=200, help="Max total steps (default: 200)")
     parser.add_argument("--max-branches", type=int, default=500, help="Max active branches (default: 500)")
+    parser.add_argument("--progress", type=int, default=0, metavar="N", help="Print progress every N steps")
     args = parser.parse_args()
+
+    start = time.monotonic()
+
+    def _on_progress(steps: int) -> None:
+        print(f"  progress: {steps} steps | {time.monotonic() - start:.1f}s elapsed", flush=True)
 
     model = make_counter_model()
     rc: RootCoordinator[Decimal] = RootCoordinator()
-    log = rc.simulate(model, ZERO_TIME, max_steps=args.max_steps, max_branches=args.max_branches)
+    log = rc.simulate(
+        model, ZERO_TIME,
+        max_steps=args.max_steps,
+        max_branches=args.max_branches,
+        progress_interval=args.progress,
+        on_progress=_on_progress if args.progress > 0 else None,
+    )
 
     print(f"Simulation produced {len(log)} log entries")
     for entry in log[:10]:
