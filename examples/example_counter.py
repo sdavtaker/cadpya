@@ -9,6 +9,7 @@ The counter accumulates ADDs and outputs the count on RESET.
 
 from __future__ import annotations
 
+import argparse
 from pathlib import Path
 from typing import Any
 
@@ -87,9 +88,14 @@ def make_counter_model() -> CoupledModel[Decimal]:
 
 
 def main() -> None:
+    parser = argparse.ArgumentParser(description="2 Generators + Counter simulation")
+    parser.add_argument("--max-steps", type=int, default=200, help="Max total steps (default: 200)")
+    parser.add_argument("--max-branches", type=int, default=500, help="Max active branches (default: 500)")
+    args = parser.parse_args()
+
     model = make_counter_model()
     rc: RootCoordinator[Decimal] = RootCoordinator()
-    log = rc.simulate(model, ZERO_TIME, max_steps=200, max_branches=500)
+    log = rc.simulate(model, ZERO_TIME, max_steps=args.max_steps, max_branches=args.max_branches)
 
     print(f"Simulation produced {len(log)} log entries")
     for entry in log[:10]:

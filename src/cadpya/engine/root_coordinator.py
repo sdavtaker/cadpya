@@ -127,7 +127,10 @@ class RootCoordinator[T]:
             else:
                 # Branching — clone state for each branch
                 if len(queue) + len(actions) > max_branches:
-                    msg = f"Simulation exceeded max_branches limit ({max_branches})"
+                    msg = (
+                        f"Simulation exceeded max_branches limit ({max_branches}) "
+                        f"after {total_steps} steps"
+                    )
                     raise SimulationLimitError(msg)
 
                 for i, action in enumerate(actions):
