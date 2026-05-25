@@ -1,4 +1,4 @@
-# cadpya
+# cadpya [![License](https://img.shields.io/badge/License-BSD%202--Clause-orange.svg)](https://opensource.org/licenses/BSD-2-Clause) [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/sdavtaker/cadpya/badge)](https://scorecard.dev/viewer/?uri=github.com/sdavtaker/cadpya)
 
 A Python implementation of the **IA-DEVS** (Interval-Approximated Discrete Event Systems) simulator, based on the formalism described in *"Uncertainty on Discrete-Event System Simulation"* (Vicino, Wainer, Dalle, 2021).
 
