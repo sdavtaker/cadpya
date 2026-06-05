@@ -5,11 +5,13 @@ on:
   pull_request:
     branches: [main]
 
-permissions: read-all
+permissions: {}
 
 jobs:
   build-and-test:
     runs-on: ubuntu-24.04
+    permissions:
+      contents: read
     env:
       PIPENV_VENV_IN_PROJECT: "1"
     steps:
