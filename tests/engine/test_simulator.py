@@ -275,3 +275,37 @@ class TestElapsedTimeComputation:
         sim.x_function(x, t)
         # State was [0,0], now = [0,0] + [0.000, 0.013] = [0.000, 0.013]
         assert sim.model.state_interval == Interval.closed(d("0.000"), d("0.013"))
+
+
+class TestSimulatorEngineEquals:
+    def _make_sim(self) -> Simulator[Decimal, Decimal, Decimal, Decimal]:
+        sim: Simulator[Decimal, Decimal, Decimal, Decimal] = Simulator(Generator, ZERO)
+        sim.init(ZERO_STATE, ZERO_TIME, ZERO_TIME)
+        return sim
+
+    def test_equal_to_itself(self) -> None:
+        sim = self._make_sim()
+        assert sim.engine_equals(sim)
+
+    def test_equal_to_fresh_copy(self) -> None:
+        a = self._make_sim()
+        b = self._make_sim()
+        assert a.engine_equals(b)
+
+    def test_not_equal_after_state_change(self) -> None:
+        a = self._make_sim()
+        b = self._make_sim()
+        b.star_function(PERIOD)
+        assert not a.engine_equals(b)
+
+    def test_not_equal_to_non_simulator(self) -> None:
+        sim = self._make_sim()
+        assert not sim.engine_equals("not a simulator")
+
+    def test_not_equal_when_t_last_differs(self) -> None:
+        a = self._make_sim()
+        b = self._make_sim()
+        b.star_function(PERIOD)
+        b2 = self._make_sim()
+        assert not a.engine_equals(b)
+        assert b2.engine_equals(a)

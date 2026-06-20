@@ -60,31 +60,32 @@ class TestLogStructure:
                 )
 
     def test_kind_field_valid_values(self) -> None:
-        """Every log entry has a kind of 'atomic', 'coupled', or 'skip'."""
+        """Every log entry has a valid kind."""
         log = _run_4gp()
-        valid_kinds = {"atomic", "coupled", "skip"}
+        valid_kinds = {"atomic", "coupled", "skip", "dedup"}
         for entry in log:
             assert entry.kind in valid_kinds, (
                 f"Branch {entry.branch} has invalid kind '{entry.kind}'"
             )
 
     def test_skip_entries_have_empty_component_and_no_output(self) -> None:
-        """Skip entries must have component='' and output=None."""
+        """Skip and dedup entries must have component='' and output=None."""
         log = _run_4gp()
         for entry in log:
-            if entry.kind == "skip":
+            if entry.kind in ("skip", "dedup"):
                 assert entry.component == "", (
-                    f"Skip entry {entry.branch} has non-empty component '{entry.component}'"
+                    f"{entry.kind} entry {entry.branch} has non-empty "
+                    f"component '{entry.component}'"
                 )
                 assert entry.output is None, (
-                    f"Skip entry {entry.branch} has unexpected output '{entry.output}'"
+                    f"{entry.kind} entry {entry.branch} has unexpected output '{entry.output}'"
                 )
 
     def test_non_skip_entries_have_non_empty_component(self) -> None:
         """Atomic and coupled entries must have a non-empty component name."""
         log = _run_4gp()
         for entry in log:
-            if entry.kind != "skip":
+            if entry.kind not in ("skip", "dedup"):
                 assert entry.component != "", (
                     f"Non-skip entry {entry.branch} (kind={entry.kind}) has empty component"
                 )

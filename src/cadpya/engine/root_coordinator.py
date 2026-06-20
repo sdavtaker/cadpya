@@ -31,11 +31,12 @@ class LogEntry:
 
     branch: str
     component: str
-    kind: str  # "atomic", "coupled", or "skip"
+    kind: str  # "atomic", "coupled", "skip", or "dedup"
     output: str | None
     parent_branch: str | None
     step: int
     time: str
+    merged_into: str | None = None
 
 
 @dataclass
@@ -88,6 +89,7 @@ class RootCoordinator[T]:
         log: list[LogEntry] = []
         total_steps = 0
         last_reported = 0
+        next_branch_id = 1  # monotonic counter for child branch IDs
 
         while queue:
             if total_steps >= max_steps:
@@ -100,6 +102,31 @@ class RootCoordinator[T]:
             ):
                 on_progress(total_steps)
                 last_reported = total_steps
+
+            # Dedup: remove queue entries structurally equal to the head
+            if len(queue) > 1:
+                head = queue[0]
+                head_id = head.branch_id
+                head_t = head.coordinator.t_next
+                i = 1
+                while i < len(queue):
+                    other = queue[i]
+                    if head.coordinator.engine_equals(other.coordinator):
+                        del queue[i]
+                        log.append(
+                            LogEntry(
+                                step=other.step,
+                                branch=other.branch_id,
+                                kind="dedup",
+                                parent_branch=other.parent_branch_id,
+                                time=str(head_t) if head_t is not None else "",
+                                component="",
+                                output=None,
+                                merged_into=head_id,
+                            )
+                        )
+                    else:
+                        i += 1
 
             branch = queue.popleft()
 
@@ -148,7 +175,7 @@ class RootCoordinator[T]:
                     )
                     raise SimulationLimitError(msg)
 
-                for i, action in enumerate(actions):
+                for action in actions:
                     if total_steps >= max_steps:
                         break
 
@@ -156,7 +183,8 @@ class RootCoordinator[T]:
                     component_output, _ = clone.execute_branch(action)
                     total_steps += 1
 
-                    new_id = f"{branch.branch_id}.{i}"
+                    new_id = str(next_branch_id)
+                    next_branch_id += 1
 
                     if action.engine_name:
                         engine = branch.coordinator.engines.get(action.engine_name)
