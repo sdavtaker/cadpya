@@ -492,3 +492,50 @@ class TestNonPunctualSkipBranch:
         branches = coord.compute_branches(PERIOD)
         skip_branches = [b for b in branches if b.engine_name == ""]
         assert len(skip_branches) == 0
+
+
+class TestCoordinatorEngineEquals:
+    def _make_coord(self) -> Coordinator[Decimal, int]:
+        model = make_gp_model()
+        coord: Coordinator[Decimal, int] = Coordinator(model, ZERO)
+        coord.init(ZERO_TIME)
+        return coord
+
+    def test_equal_to_itself(self) -> None:
+        coord = self._make_coord()
+        assert coord.engine_equals(coord)
+
+    def test_equal_to_fresh_copy(self) -> None:
+        a = self._make_coord()
+        b = self._make_coord()
+        assert a.engine_equals(b)
+
+    def test_not_equal_after_step(self) -> None:
+        import copy
+
+        a = self._make_coord()
+        b = copy.deepcopy(a)
+        actions = b.compute_branches(b.t_next)  # type: ignore[arg-type]
+        b.execute_branch(actions[0])
+        assert not a.engine_equals(b)
+
+    def test_not_equal_to_non_coordinator(self) -> None:
+        coord = self._make_coord()
+        assert not coord.engine_equals("not a coordinator")
+
+    def test_not_equal_different_engine_keys(self) -> None:
+        from cadpya.basic_models.generator import ZERO_STATE, Generator
+        from cadpya.modeling.component import ComponentSpec
+        from cadpya.modeling.coupled import CoupledModel
+
+        one_gen = CoupledModel(
+            components={"G": ComponentSpec.atomic(Generator, ZERO_STATE, ZERO_TIME)},
+            influencers={"G": frozenset()},
+            translations={},
+            select=lambda c: next(iter(c)),
+            zero_time=ZERO,
+        )
+        coord_one: Coordinator[Decimal, int] = Coordinator(one_gen, ZERO)
+        coord_one.init(ZERO_TIME)
+        coord_two = self._make_coord()
+        assert not coord_one.engine_equals(coord_two)

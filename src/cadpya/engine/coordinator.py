@@ -436,6 +436,16 @@ class Coordinator[T, Y]:
         """Access child engines."""
         return self._engines
 
+    def engine_equals(self, other: object) -> bool:
+        """Structural equality for dedup: same times and all child engines equal."""
+        if not isinstance(other, Coordinator):
+            return False
+        if self._t_last != other._t_last or self._t_next != other._t_next:
+            return False
+        if set(self._engines.keys()) != set(other._engines.keys()):
+            return False
+        return all(self._engines[k].engine_equals(other._engines[k]) for k in self._engines)
+
     def __deepcopy__(self, memo: dict[int, Any]) -> Coordinator[T, Y]:
         """Deep copy sharing the immutable CoupledModel."""
         cls = type(self)

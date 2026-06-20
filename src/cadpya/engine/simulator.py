@@ -144,6 +144,18 @@ class Simulator[S, T, X, Y]:
         """Access the underlying atomic model."""
         return self._require_initialized()
 
+    def engine_equals(self, other: object) -> bool:
+        """Structural equality for dedup: same t_last, t_next, and model state."""
+        if not isinstance(other, Simulator):
+            return False
+        if self._t_last != other._t_last or self._t_next != other._t_next:
+            return False
+        if (self._model is None) != (other._model is None):
+            return False
+        if self._model is None or other._model is None:
+            return self._model is None and other._model is None
+        return self._model.state_interval == other._model.state_interval
+
     # -- Internal helpers --------------------------------------------------
 
     def _require_initialized(self) -> AtomicModel[S, T, X, Y]:

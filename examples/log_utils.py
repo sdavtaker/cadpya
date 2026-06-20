@@ -20,5 +20,8 @@ def write_jsonl(log: list[LogEntry], path: str | Path) -> None:
     out.parent.mkdir(parents=True, exist_ok=True)
     with out.open("w") as f:
         for entry in log:
-            f.write(json.dumps(asdict(entry)) + "\n")
+            d = asdict(entry)
+            if d.get("merged_into") is None:
+                del d["merged_into"]
+            f.write(json.dumps(d) + "\n")
     print(f"Wrote {len(log)} entries to {out}")
