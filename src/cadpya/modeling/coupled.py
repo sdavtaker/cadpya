@@ -10,10 +10,11 @@ Corresponds to the formal tuple C = <X, Y, D, M, I, Z, SELECT>.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from types import MappingProxyType
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import Callable, Mapping
 
     from cadpya.modeling.component import ComponentSpec
     from cadpya.modeling.interval import Interval
@@ -37,14 +38,19 @@ class CoupledModel[T]:
         zero_time: shared zero value for the time type.
     """
 
-    components: dict[str, ComponentSpec]
-    influencers: dict[str, frozenset[str]]
-    translations: dict[tuple[str, str], Callable[[Interval[Any]], Interval[Any]]]
+    components: Mapping[str, ComponentSpec]
+    influencers: Mapping[str, frozenset[str]]
+    translations: Mapping[tuple[str, str], Callable[[Interval[Any]], Interval[Any]]]
     select: Callable[[frozenset[str]], str]
     zero_time: T
 
     def __post_init__(self) -> None:
         _validate(self)
+        # Wrap mutable dicts in read-only proxies so post-construction mutation
+        # cannot bypass the validation that ran above.
+        object.__setattr__(self, "components", MappingProxyType(self.components))
+        object.__setattr__(self, "influencers", MappingProxyType(self.influencers))
+        object.__setattr__(self, "translations", MappingProxyType(self.translations))
 
 
 def _format_names(names: frozenset[str] | set[str]) -> str:

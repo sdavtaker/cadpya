@@ -216,3 +216,38 @@ class TestValidationRule7SelfReserved:
                 select=_select_first,
                 zero_time=ZERO,
             )
+
+
+class TestImmutability:
+    """Fields are wrapped in MappingProxyType after construction so that
+    post-construction mutation cannot bypass validation."""
+
+    def _make_model(self) -> CoupledModel[Any]:
+        return CoupledModel(
+            components={"G": _gen_spec()},
+            influencers={"G": frozenset()},
+            translations={},
+            select=_select_first,
+            zero_time=ZERO,
+        )
+
+    def test_components_immutable(self) -> None:
+        model = self._make_model()
+        with pytest.raises(TypeError):
+            model.components["evil"] = _gen_spec()  # type: ignore[index]
+
+    def test_influencers_immutable(self) -> None:
+        model = self._make_model()
+        with pytest.raises(TypeError):
+            model.influencers["evil"] = frozenset()  # type: ignore[index]
+
+    def test_translations_immutable(self) -> None:
+        model = self._make_model()
+        with pytest.raises(TypeError):
+            model.translations[("G", "evil")] = _identity  # type: ignore[index]
+
+    def test_read_access_still_works(self) -> None:
+        model = self._make_model()
+        assert "G" in model.components
+        assert model.influencers["G"] == frozenset()
+        assert len(model.translations) == 0
