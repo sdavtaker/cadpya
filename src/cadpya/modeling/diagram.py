@@ -41,6 +41,28 @@ def _sanitize_title(text: str) -> str:
     return text.replace('"', "#quot;")
 
 
+def _build_id_map(names: list[str], prefix: str) -> dict[str, str]:
+    """Map each name to a unique, collision-free Mermaid node ID.
+
+    When two distinct names sanitize to the same base ID, the later one (in
+    sorted order) receives a ``_2``, ``_3``, … suffix so Mermaid cannot merge
+    distinct components into a single node.
+    """
+    result: dict[str, str] = {}
+    used: set[str] = set()
+    for name in sorted(names):
+        safe = _sanitize_id(name)
+        base = f"{prefix}__{safe}" if prefix else safe
+        candidate = base
+        i = 2
+        while candidate in used:
+            candidate = f"{base}_{i}"
+            i += 1
+        result[name] = candidate
+        used.add(candidate)
+    return result
+
+
 def to_mermaid(model: CoupledModel[Any], title: str = "", max_depth: int = 20) -> str:
     """Generate a Mermaid flowchart from a coupled model.
 
@@ -73,14 +95,6 @@ def to_mermaid(model: CoupledModel[Any], title: str = "", max_depth: int = 20) -
     return "\n".join(lines) + "\n"
 
 
-def _node_id(prefix: str, name: str) -> str:
-    """Build a unique Mermaid node ID from prefix and component name."""
-    safe_name = _sanitize_id(name)
-    if prefix:
-        return f"{prefix}__{safe_name}"
-    return safe_name
-
-
 def _emit_model(
     model: CoupledModel[Any],
     prefix: str,
@@ -102,10 +116,22 @@ def _emit_model(
 
     visited = visited | {model_id}
 
+    # Determine whether a "self" boundary node is needed
+    has_self = "self" in model.influencers or any(
+        dst == "self" or src == "self" for src, dst in model.translations
+    )
+
+    # Build a collision-free name → node-ID map for this model level.
+    # Two distinct names that sanitize to the same base receive unique suffixes.
+    all_names: list[str] = list(model.components.keys())
+    if has_self:
+        all_names.append("self")
+    id_map = _build_id_map(all_names, prefix)
+
     # Emit nodes for each component
     for name in sorted(model.components):
         spec = model.components[name]
-        nid = _node_id(prefix, name)
+        nid = id_map[name]
 
         if spec.is_coupled:
             assert spec.coupled_model is not None  # guaranteed by is_coupled
@@ -125,19 +151,13 @@ def _emit_model(
             safe_label = _sanitize_label(f"{name} ({class_name})")
             lines.append(f'{indent}{nid}["{safe_label}"]')
 
-    # Emit self boundary node if model has EOC or EIC
-    has_self = "self" in model.influencers or any(
-        dst == "self" or src == "self" for src, dst in model.translations
-    )
+    # Emit self boundary node
     if has_self:
-        self_id = _node_id(prefix, "self")
-        lines.append(f'{indent}{self_id}(["self"])')
+        lines.append(f'{indent}{id_map["self"]}(["self"])')
 
     # Emit edges from translations
     for src, dst in sorted(model.translations):
-        src_id = _node_id(prefix, src)
-        dst_id = _node_id(prefix, dst)
-        lines.append(f"{indent}{src_id} --> {dst_id}")
+        lines.append(f"{indent}{id_map[src]} --> {id_map[dst]}")
 
 
 def _class_name(spec: Any) -> str:

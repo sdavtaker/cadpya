@@ -49,8 +49,14 @@ class CoupledModel[T]:
         # Copy into fresh dicts before proxy-wrapping so that callers who retain
         # a reference to the original dict cannot mutate the validated topology
         # through the proxy (MappingProxyType reflects mutations to its backing dict).
+        # Influencer values are also copied into frozenset so a caller-retained
+        # mutable set cannot alter individual influencer sets post-construction.
         object.__setattr__(self, "components", MappingProxyType(dict(self.components)))
-        object.__setattr__(self, "influencers", MappingProxyType(dict(self.influencers)))
+        object.__setattr__(
+            self,
+            "influencers",
+            MappingProxyType({k: frozenset(v) for k, v in self.influencers.items()}),
+        )
         object.__setattr__(self, "translations", MappingProxyType(dict(self.translations)))
 
 

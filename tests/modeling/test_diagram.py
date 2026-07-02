@@ -2,7 +2,13 @@
 
 from __future__ import annotations
 
-from cadpya.modeling.diagram import _sanitize_id, _sanitize_label, _sanitize_title, to_mermaid
+from cadpya.modeling.diagram import (
+    _build_id_map,
+    _sanitize_id,
+    _sanitize_label,
+    _sanitize_title,
+    to_mermaid,
+)
 from tests.coupled_models.test_4gp import make_4gp_model
 from tests.coupled_models.test_eic import make_eic_top_model, make_gpp_model
 from tests.coupled_models.test_hierarchical import make_hierarchical_model
@@ -178,6 +184,36 @@ class TestUnsafeNamesInOutput:
     def test_title_with_quote_is_escaped(self) -> None:
         result = to_mermaid(make_4gp_model(), title='A "B" C')
         assert 'title: "A #quot;B#quot; C"' in result
+
+
+class TestBuildIdMap:
+    def test_safe_names_no_prefix(self) -> None:
+        id_map = _build_id_map(["G1", "G2"], prefix="")
+        assert id_map["G1"] == "G1"
+        assert id_map["G2"] == "G2"
+
+    def test_with_prefix(self) -> None:
+        id_map = _build_id_map(["G1"], prefix="Left")
+        assert id_map["G1"] == "Left__G1"
+
+    def test_collision_gets_unique_suffix(self) -> None:
+        # "a b" and "a-b" both sanitize to "a_b"; the second (sorted) must be "a_b_2"
+        id_map = _build_id_map(["a-b", "a b"], prefix="")
+        assert len(set(id_map.values())) == 2
+        assert "a_b" in id_map.values()
+        assert "a_b_2" in id_map.values()
+
+    def test_three_way_collision(self) -> None:
+        # "x y", "x-y", "x.y" all map to "x_y"; each gets a unique ID
+        id_map = _build_id_map(["x-y", "x y", "x.y"], prefix="")
+        ids = set(id_map.values())
+        assert len(ids) == 3
+        assert ids == {"x_y", "x_y_2", "x_y_3"}
+
+    def test_empty_names_after_sanitize_disambiguated(self) -> None:
+        # Two names that both reduce to "_" must each get a unique ID
+        id_map = _build_id_map(["!", "?"], prefix="")
+        assert len(set(id_map.values())) == 2
 
 
 class TestMaxDepth:

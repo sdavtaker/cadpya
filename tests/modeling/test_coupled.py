@@ -264,3 +264,17 @@ class TestImmutability:
         )
         original["injected"] = _gen_spec()
         assert "injected" not in model.components
+
+    def test_mutable_influencer_set_cannot_mutate_model(self) -> None:
+        # Caller passes a mutable set as an influencer value; the model must
+        # copy it to frozenset so post-construction mutation has no effect.
+        mutable: set[str] = set()
+        model = CoupledModel(
+            components={"G": _gen_spec()},
+            influencers={"G": mutable},  # type: ignore[arg-type]
+            translations={},
+            select=_select_first,
+            zero_time=ZERO,
+        )
+        mutable.add("evil")
+        assert "evil" not in model.influencers["G"]
