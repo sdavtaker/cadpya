@@ -144,6 +144,19 @@ class TestSanitizeTitle:
     def test_newline_replaced(self) -> None:
         assert _sanitize_title("line1\nline2") == "line1 line2"
 
+    def test_backslash_escaped_before_other_substitutions(self) -> None:
+        # A bare backslash in the title must become \\ so YAML doesn't interpret
+        # it as the start of an escape sequence (e.g. \n → newline).
+        assert _sanitize_title("path\\to\\file") == "path\\\\to\\\\file"
+
+    def test_backslash_n_not_reintroduced(self) -> None:
+        # Input: literal backslash + 'n'.  In YAML double-quoted strings \n is
+        # a newline escape, so the backslash must be doubled → \\n.
+        # The output must contain two backslashes before 'n' so YAML reads
+        # the pair as literal-backslash + 'n', not as a newline.
+        result = _sanitize_title("bad\\nvalue")
+        assert "\\\\n" in result  # two backslashes + n confirms the backslash was doubled
+
 
 class TestUnsafeNamesInOutput:
     def test_unsafe_component_name_sanitized_in_node_id(self) -> None:

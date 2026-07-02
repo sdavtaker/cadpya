@@ -30,7 +30,13 @@ def _sanitize_label(text: str) -> str:
 
 
 def _sanitize_title(text: str) -> str:
-    """Sanitize text for the YAML frontmatter title field."""
+    """Sanitize text for the YAML frontmatter title field (double-quoted YAML string).
+
+    In YAML double-quoted strings backslash introduces escape sequences, so
+    backslashes must be escaped first before any other substitution.
+    """
+    # Escape backslashes first so later replacements don't introduce new sequences.
+    text = text.replace("\\", "\\\\")
     text = "".join(ch if ch.isprintable() else " " for ch in text)
     return text.replace('"', "#quot;")
 
@@ -43,9 +49,10 @@ def to_mermaid(model: CoupledModel[Any], title: str = "", max_depth: int = 20) -
     the current recursion path) stops infinite descent and emits a Mermaid
     comment instead.
 
-    Component names, titles, and edge labels are sanitized before emission:
-    characters that are unsafe in Mermaid identifiers are replaced with ``_``;
-    double-quotes and control characters in labels are escaped.
+    Component names and titles are sanitized before emission: characters that
+    are unsafe in Mermaid identifiers are replaced with ``_``; double-quotes
+    and control characters in node labels and the title are escaped.
+    Edges are currently unlabeled (``src --> dst`` only).
 
     Args:
         model: the coupled model to diagram

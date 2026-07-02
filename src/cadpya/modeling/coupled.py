@@ -46,11 +46,12 @@ class CoupledModel[T]:
 
     def __post_init__(self) -> None:
         _validate(self)
-        # Wrap mutable dicts in read-only proxies so post-construction mutation
-        # cannot bypass the validation that ran above.
-        object.__setattr__(self, "components", MappingProxyType(self.components))
-        object.__setattr__(self, "influencers", MappingProxyType(self.influencers))
-        object.__setattr__(self, "translations", MappingProxyType(self.translations))
+        # Copy into fresh dicts before proxy-wrapping so that callers who retain
+        # a reference to the original dict cannot mutate the validated topology
+        # through the proxy (MappingProxyType reflects mutations to its backing dict).
+        object.__setattr__(self, "components", MappingProxyType(dict(self.components)))
+        object.__setattr__(self, "influencers", MappingProxyType(dict(self.influencers)))
+        object.__setattr__(self, "translations", MappingProxyType(dict(self.translations)))
 
 
 def _format_names(names: frozenset[str] | set[str]) -> str:

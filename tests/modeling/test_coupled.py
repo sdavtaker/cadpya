@@ -251,3 +251,16 @@ class TestImmutability:
         assert "G" in model.components
         assert model.influencers["G"] == frozenset()
         assert len(model.translations) == 0
+
+    def test_retained_reference_cannot_mutate_components(self) -> None:
+        # Caller retains the original dict; mutation must not affect the model.
+        original = {"G": _gen_spec()}
+        model = CoupledModel(
+            components=original,
+            influencers={"G": frozenset()},
+            translations={},
+            select=_select_first,
+            zero_time=ZERO,
+        )
+        original["injected"] = _gen_spec()
+        assert "injected" not in model.components
