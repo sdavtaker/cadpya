@@ -31,12 +31,11 @@ class LogEntry:
 
     branch: str
     component: str
-    kind: str  # "atomic", "coupled", "skip", or "dedup"
+    kind: str  # "atomic", "coupled", or "skip"
     output: str | None
-    parent_branch: str | None
+    parent_branches: list[str]
     step: int
     time: str
-    merged_into: str | None = None
 
 
 @dataclass
@@ -45,12 +44,21 @@ class _SimulationBranch:
 
     branch_id: str
     coordinator: Coordinator[Any, Any]
-    parent_branch_id: str | None
+    parent_branch_ids: list[str]
     step: int
 
 
 class RootCoordinator[T]:
-    """IA-DEVS Root Coordinator with BFS branching (Algorithm 4)."""
+    """IA-DEVS Root Coordinator with BFS branching (Algorithm 4).
+
+    Args:
+        dedup_transitions: when True (default), branches whose coordinator
+            states are structurally equal are merged before execution.
+            Disable for validation runs that need the full unmerged log.
+    """
+
+    def __init__(self, *, dedup_transitions: bool = True) -> None:
+        self._dedup = dedup_transitions
 
     def simulate(
         self,
@@ -75,7 +83,11 @@ class RootCoordinator[T]:
             on_progress: callback receiving total_steps; called when progress_interval > 0.
 
         Returns:
-            List of LogEntry recording each step.
+            List of LogEntry recording each step.  Each entry has a
+            ``parent_branches`` list: empty for the root branch, one element
+            for an ordinary child branch, and two or more elements when
+            dedup_transitions is True and multiple structurally-equal branches
+            were merged into one (recording all contributing parent branches).
 
         Raises:
             SimulationLimitError: if max_branches is exceeded.
@@ -84,7 +96,7 @@ class RootCoordinator[T]:
         coord.init(t)
 
         queue: deque[_SimulationBranch] = deque()
-        queue.append(_SimulationBranch("0", coord, None, 0))
+        queue.append(_SimulationBranch("0", coord, [], 0))
 
         log: list[LogEntry] = []
         total_steps = 0
@@ -103,28 +115,20 @@ class RootCoordinator[T]:
                 on_progress(total_steps)
                 last_reported = total_steps
 
-            # Dedup: remove queue entries structurally equal to the head
-            if len(queue) > 1:
+            # Dedup: merge queue entries structurally equal to the head into it.
+            # The surviving branch accumulates all contributing parent branch IDs.
+            if self._dedup and len(queue) > 1:
                 head = queue[0]
-                head_id = head.branch_id
-                head_t = head.coordinator.t_next
                 i = 1
+                seen_parents: set[str] = set(head.parent_branch_ids)
                 while i < len(queue):
                     other = queue[i]
                     if head.coordinator.engine_equals(other.coordinator):
                         del queue[i]
-                        log.append(
-                            LogEntry(
-                                step=other.step,
-                                branch=other.branch_id,
-                                kind="dedup",
-                                parent_branch=other.parent_branch_id,
-                                time=str(head_t) if head_t is not None else "",
-                                component="",
-                                output=None,
-                                merged_into=head_id,
-                            )
-                        )
+                        for pid in other.parent_branch_ids:
+                            if pid not in seen_parents:
+                                head.parent_branch_ids.append(pid)
+                                seen_parents.add(pid)
                     else:
                         i += 1
 
@@ -155,7 +159,7 @@ class RootCoordinator[T]:
                             step=branch.step,
                             branch=branch.branch_id,
                             kind=kind,
-                            parent_branch=branch.parent_branch_id,
+                            parent_branches=list(branch.parent_branch_ids),
                             time=str(action.limit),
                             component=action.engine_name,
                             output=str(component_output) if component_output is not None else None,
@@ -196,7 +200,7 @@ class RootCoordinator[T]:
                             step=branch.step,
                             branch=new_id,
                             kind=kind,
-                            parent_branch=branch.branch_id,
+                            parent_branches=[branch.branch_id],
                             time=str(action.limit),
                             component=action.engine_name,
                             output=str(component_output) if component_output is not None else None,
@@ -206,7 +210,7 @@ class RootCoordinator[T]:
                     new_branch = _SimulationBranch(
                         branch_id=new_id,
                         coordinator=clone,
-                        parent_branch_id=branch.branch_id,
+                        parent_branch_ids=[branch.branch_id],
                         step=branch.step + 1,
                     )
 

@@ -69,9 +69,9 @@ class TestAllPermutations:
                 entries = [e for e in log if e.branch == current]
                 for e in entries:
                     lineage.append(e.component)
-                # Find parent
-                parents = [e.parent_branch for e in log if e.branch == current]
-                current = parents[0] if parents else None
+                # Find parent (take first parent from parent_branches list)
+                parent_lists = [e.parent_branches for e in log if e.branch == current]
+                current = parent_lists[0][0] if parent_lists and parent_lists[0] else None
 
             # Lineage is in reverse order (deepest first)
             lineage.reverse()

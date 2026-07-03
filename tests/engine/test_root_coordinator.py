@@ -86,7 +86,7 @@ class TestFourGPSimulation:
         rc: RootCoordinator[Decimal] = RootCoordinator()
         log = rc.simulate(model, ZERO_TIME, max_steps=4)
         first_step = [e for e in log if e.step == 0]
-        assert all(e.parent_branch == "0" for e in first_step)
+        assert all(e.parent_branches == ["0"] for e in first_step)
 
     def test_4gp_second_wave_more_branches(self) -> None:
         """After first 4 branches, each has 3 remaining generators → more branching."""
@@ -164,3 +164,42 @@ class TestSafetyLimits:
         rc: RootCoordinator[Decimal] = RootCoordinator()
         with pytest.raises(SimulationLimitError, match="max_branches"):
             rc.simulate(model, ZERO_TIME, max_steps=10000, max_branches=2)
+
+
+class TestParentBranches:
+    def test_root_branch_has_empty_parent_branches(self) -> None:
+        """Entries on the root branch (no branching) have empty parent_branches."""
+        model = make_gp_model()
+        rc: RootCoordinator[Decimal] = RootCoordinator()
+        log = rc.simulate(model, ZERO_TIME, max_steps=5)
+        for entry in log:
+            assert entry.parent_branches == []
+
+    def test_child_branches_have_one_parent(self) -> None:
+        """Ordinary child branches (no dedup merge) have exactly one parent."""
+        model = make_4gp_model()
+        rc: RootCoordinator[Decimal] = RootCoordinator()
+        log = rc.simulate(model, ZERO_TIME, max_steps=4)
+        for entry in log:
+            assert len(entry.parent_branches) == 1
+
+    def test_dedup_off_no_multi_parent_entries(self) -> None:
+        """With dedup_transitions=False, every entry has at most one parent branch."""
+        model = make_4gp_model()
+        rc: RootCoordinator[Decimal] = RootCoordinator(dedup_transitions=False)
+        log = rc.simulate(model, ZERO_TIME, max_steps=50)
+        for entry in log:
+            assert len(entry.parent_branches) <= 1
+
+    def test_dedup_on_produces_same_outputs_as_dedup_off(self) -> None:
+        """Dedup must not change the set of output values — only reduce branch count."""
+        model = make_4gp_model()
+        on_log = RootCoordinator[Decimal](dedup_transitions=True).simulate(
+            model, ZERO_TIME, max_steps=200
+        )
+        off_log = RootCoordinator[Decimal](dedup_transitions=False).simulate(
+            model, ZERO_TIME, max_steps=200
+        )
+        on_outputs = {e.output for e in on_log if e.output is not None}
+        off_outputs = {e.output for e in off_log if e.output is not None}
+        assert on_outputs == off_outputs
