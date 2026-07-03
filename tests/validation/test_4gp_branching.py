@@ -69,9 +69,11 @@ class TestAllPermutations:
                 entries = [e for e in log if e.branch == current]
                 for e in entries:
                     lineage.append(e.component)
-                # Find parent
-                parents = [e.parent_branch for e in log if e.branch == current]
-                current = parents[0] if parents else None
+                # Union parent_branches across ALL entries for this branch so that
+                # parents added by later dedup merges are included, then take the
+                # numerically smallest ID for a deterministic representative lineage.
+                all_parents = {p for e in log if e.branch == current for p in e.parent_branches}
+                current = min(all_parents, key=int) if all_parents else None
 
             # Lineage is in reverse order (deepest first)
             lineage.reverse()
