@@ -216,3 +216,65 @@ class TestValidationRule7SelfReserved:
                 select=_select_first,
                 zero_time=ZERO,
             )
+
+
+class TestImmutability:
+    """Fields are wrapped in MappingProxyType after construction so that
+    post-construction mutation cannot bypass validation."""
+
+    def _make_model(self) -> CoupledModel[Any]:
+        return CoupledModel(
+            components={"G": _gen_spec()},
+            influencers={"G": frozenset()},
+            translations={},
+            select=_select_first,
+            zero_time=ZERO,
+        )
+
+    def test_components_immutable(self) -> None:
+        model = self._make_model()
+        with pytest.raises(TypeError):
+            model.components["evil"] = _gen_spec()  # type: ignore[index]
+
+    def test_influencers_immutable(self) -> None:
+        model = self._make_model()
+        with pytest.raises(TypeError):
+            model.influencers["evil"] = frozenset()  # type: ignore[index]
+
+    def test_translations_immutable(self) -> None:
+        model = self._make_model()
+        with pytest.raises(TypeError):
+            model.translations[("G", "evil")] = _identity  # type: ignore[index]
+
+    def test_read_access_still_works(self) -> None:
+        model = self._make_model()
+        assert "G" in model.components
+        assert model.influencers["G"] == frozenset()
+        assert len(model.translations) == 0
+
+    def test_retained_reference_cannot_mutate_components(self) -> None:
+        # Caller retains the original dict; mutation must not affect the model.
+        original = {"G": _gen_spec()}
+        model = CoupledModel(
+            components=original,
+            influencers={"G": frozenset()},
+            translations={},
+            select=_select_first,
+            zero_time=ZERO,
+        )
+        original["injected"] = _gen_spec()
+        assert "injected" not in model.components
+
+    def test_mutable_influencer_set_cannot_mutate_model(self) -> None:
+        # Caller passes a mutable set as an influencer value; the model must
+        # copy it to frozenset so post-construction mutation has no effect.
+        mutable: set[str] = set()
+        model = CoupledModel(
+            components={"G": _gen_spec()},
+            influencers={"G": mutable},  # type: ignore[arg-type]
+            translations={},
+            select=_select_first,
+            zero_time=ZERO,
+        )
+        mutable.add("evil")
+        assert "evil" not in model.influencers["G"]

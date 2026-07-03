@@ -10,10 +10,11 @@ Corresponds to the formal tuple C = <X, Y, D, M, I, Z, SELECT>.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from types import MappingProxyType
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import Callable, Mapping
 
     from cadpya.modeling.component import ComponentSpec
     from cadpya.modeling.interval import Interval
@@ -37,14 +38,26 @@ class CoupledModel[T]:
         zero_time: shared zero value for the time type.
     """
 
-    components: dict[str, ComponentSpec]
-    influencers: dict[str, frozenset[str]]
-    translations: dict[tuple[str, str], Callable[[Interval[Any]], Interval[Any]]]
+    components: Mapping[str, ComponentSpec]
+    influencers: Mapping[str, frozenset[str]]
+    translations: Mapping[tuple[str, str], Callable[[Interval[Any]], Interval[Any]]]
     select: Callable[[frozenset[str]], str]
     zero_time: T
 
     def __post_init__(self) -> None:
         _validate(self)
+        # Copy into fresh dicts before proxy-wrapping so that callers who retain
+        # a reference to the original dict cannot mutate the validated topology
+        # through the proxy (MappingProxyType reflects mutations to its backing dict).
+        # Influencer values are also copied into frozenset so a caller-retained
+        # mutable set cannot alter individual influencer sets post-construction.
+        object.__setattr__(self, "components", MappingProxyType(dict(self.components)))
+        object.__setattr__(
+            self,
+            "influencers",
+            MappingProxyType({k: frozenset(v) for k, v in self.influencers.items()}),
+        )
+        object.__setattr__(self, "translations", MappingProxyType(dict(self.translations)))
 
 
 def _format_names(names: frozenset[str] | set[str]) -> str:
