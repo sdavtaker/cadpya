@@ -84,10 +84,11 @@ class RootCoordinator[T]:
 
         Returns:
             List of LogEntry recording each step.  Each entry has a
-            ``parent_branches`` list: empty for the root branch, one element
+            ``parent_branches`` tuple: empty for the root branch, one element
             for an ordinary child branch, and two or more elements when
             dedup_transitions is True and multiple structurally-equal branches
             were merged into one (recording all contributing parent branches).
+            The JSONL writer serialises it as a JSON array.
 
         Raises:
             SimulationLimitError: if max_branches is exceeded.
