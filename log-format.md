@@ -10,7 +10,7 @@ Newline-delimited JSON (JSONL). Each line is one JSON object representing a sing
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `branch` | `string` | Hierarchical BFS tree ID. Root branch is `"0"`, children are assigned monotonically increasing integer IDs as strings (`"1"`, `"2"`, …). |
+| `branch` | `string` | Opaque branch identifier. Root branch is `"0"`; all other branches receive monotonically increasing integer IDs (`"1"`, `"2"`, …). The ID itself does not encode tree depth or path — structure is captured in `parent_branches`. |
 | `component` | `string` | Name of the component that fired. Empty string `""` for skip entries. |
 | `kind` | `string` | Component kind: `"atomic"` for atomic model components, `"coupled"` for nested coupled model components, or `"skip"` for skip branches (no component fires in this interval). |
 | `output` | `string \| null` | External output coupling (EOC) value as an interval string, or `null` if the component's output was routed only internally (IC), not to the coupled model boundary. Always `null` for skip entries. |
