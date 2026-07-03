@@ -33,7 +33,7 @@ class LogEntry:
     component: str
     kind: str  # "atomic", "coupled", or "skip"
     output: str | None
-    parent_branches: list[str]
+    parent_branches: tuple[str, ...]
     step: int
     time: str
 
@@ -159,7 +159,7 @@ class RootCoordinator[T]:
                             step=branch.step,
                             branch=branch.branch_id,
                             kind=kind,
-                            parent_branches=list(branch.parent_branch_ids),
+                            parent_branches=tuple(branch.parent_branch_ids),
                             time=str(action.limit),
                             component=action.engine_name,
                             output=str(component_output) if component_output is not None else None,
@@ -200,7 +200,7 @@ class RootCoordinator[T]:
                             step=branch.step,
                             branch=new_id,
                             kind=kind,
-                            parent_branches=[branch.branch_id],
+                            parent_branches=(branch.branch_id,),
                             time=str(action.limit),
                             component=action.engine_name,
                             output=str(component_output) if component_output is not None else None,

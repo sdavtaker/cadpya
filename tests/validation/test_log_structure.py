@@ -32,21 +32,22 @@ class TestLogStructure:
     def test_branch_dag_acyclic(self) -> None:
         """The parent-branch DAG has no cycles."""
         log = _run_4gp()
-        parents: dict[str, list[str]] = {}
+        # Union parent_branches across ALL entries for each branch so that
+        # edges added by later dedup merges are not missed.
+        parents: dict[str, set[str]] = {}
         for entry in log:
-            if entry.branch not in parents:
-                parents[entry.branch] = list(entry.parent_branches)
+            parents.setdefault(entry.branch, set()).update(entry.parent_branches)
 
-        # BFS from each node; if we reach the starting node again, there is a cycle.
+        # BFS from each node; reaching the starting node again means a cycle.
         for start in parents:
             visited: set[str] = set()
-            frontier = list(parents.get(start, []))
+            frontier = list(parents.get(start, set()))
             while frontier:
                 node = frontier.pop()
                 assert node != start, f"Cycle detected: {start} is its own ancestor"
                 if node not in visited:
                     visited.add(node)
-                    frontier.extend(parents.get(node, []))
+                    frontier.extend(parents.get(node, set()))
 
     def test_step_numbers_non_decreasing(self) -> None:
         """Within entries of the same branch, step numbers don't decrease."""
@@ -91,10 +92,10 @@ class TestLogStructure:
                     f"Non-skip entry {entry.branch} (kind={entry.kind}) has empty component"
                 )
 
-    def test_parent_branches_is_list(self) -> None:
-        """parent_branches must always be a list, never None."""
+    def test_parent_branches_is_tuple(self) -> None:
+        """parent_branches must always be a tuple (immutable sequence), never None."""
         log = _run_4gp()
         for entry in log:
-            assert isinstance(entry.parent_branches, list), (
+            assert isinstance(entry.parent_branches, tuple), (
                 f"Branch {entry.branch}: parent_branches is {type(entry.parent_branches)}"
             )

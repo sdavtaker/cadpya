@@ -86,7 +86,7 @@ class TestFourGPSimulation:
         rc: RootCoordinator[Decimal] = RootCoordinator()
         log = rc.simulate(model, ZERO_TIME, max_steps=4)
         first_step = [e for e in log if e.step == 0]
-        assert all(e.parent_branches == ["0"] for e in first_step)
+        assert all(e.parent_branches == ("0",) for e in first_step)
 
     def test_4gp_second_wave_more_branches(self) -> None:
         """After first 4 branches, each has 3 remaining generators → more branching."""
@@ -173,12 +173,12 @@ class TestParentBranches:
         rc: RootCoordinator[Decimal] = RootCoordinator()
         log = rc.simulate(model, ZERO_TIME, max_steps=5)
         for entry in log:
-            assert entry.parent_branches == []
+            assert entry.parent_branches == ()
 
-    def test_child_branches_have_one_parent(self) -> None:
-        """Ordinary child branches (no dedup merge) have exactly one parent."""
+    def test_child_branches_have_one_parent_when_dedup_off(self) -> None:
+        """With dedup disabled, every child branch has exactly one parent."""
         model = make_4gp_model()
-        rc: RootCoordinator[Decimal] = RootCoordinator()
+        rc: RootCoordinator[Decimal] = RootCoordinator(dedup_transitions=False)
         log = rc.simulate(model, ZERO_TIME, max_steps=4)
         for entry in log:
             assert len(entry.parent_branches) == 1
